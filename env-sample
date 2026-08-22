@@ -1,0 +1,23 @@
+PORT=3000
+ENV=development
+
+AWS_REGION=us-east-1
+AWS_S3_BUCKET=my-bucket
+AWS_ACCESS_KEY_ID=my-access-key-id
+AWS_SECRET_ACCESS_KEY=my-secret-access-key
+AWS_S3_UPLOAD_EXPIRES_IN=3600
+
+DEFAULT_STORAGE_VENDOR=s3
+
+# Database
+WRITER_DB_HOST=localhost
+WRITER_DB_PORT=5432
+WRITER_DB_USER=postgres
+WRITER_DB_PASSWORD=postgres
+WRITER_DB_NAME=postgres
+
+READER_DB_HOST=localhost
+READER_DB_PORT=5432
+READER_DB_USER=postgres
+READER_DB_PASSWORD=postgres
+READER_DB_NAME=postgres
