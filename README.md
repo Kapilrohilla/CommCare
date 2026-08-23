@@ -33,6 +33,7 @@ flowchart TB
 - [TypeORM](https://typeorm.io) — PostgreSQL ORM (reader/writer)
 - [Zod](https://zod.dev) — environment validation
 - [AWS S3](https://aws.amazon.com/s3/) — object storage (presigned URLs)
+- [Prometheus](https://prometheus.io) + [Grafana](https://grafana.com) + [Loki](https://grafana.com/oss/loki/) — metrics & logs
 - [Asterisk](https://www.asterisk.org/) — underlying PBX (external)
 
 ## Project structure
@@ -43,6 +44,7 @@ src/
 ├── constants/           # App-level constants
 ├── infra/
 │   ├── database/        # PostgreSQL + TypeORM (reader/writer)
+│   ├── observability/   # Prometheus metrics (/metrics)
 │   └── storage/         # S3 storage abstraction
 ├── modules/
 │   ├── healthCheck/     # Liveness & readiness probes
@@ -71,13 +73,19 @@ Kubernetes-friendly endpoints:
 ### Storage
 S3-backed presigned URL API for uploads, downloads, deletes, and existence checks (e.g. call recordings, voicemails, documents).
 
+### Observability
+- **`GET /metrics`** — Prometheus metrics (HTTP latency, request counts, Node.js runtime)
+- **Prometheus** — scrapes app, node-exporter, postgres-exporter
+- **Grafana** — dashboards (Prometheus + Loki datasources pre-provisioned)
+- **Loki + Promtail** — container log aggregation (sidecar pattern)
+
 ## Getting started
 
 ### Prerequisites
 
 - Node.js 20+
 - pnpm
-- Docker (for local PostgreSQL)
+- Docker & Docker Compose
 - Asterisk server (separate deployment)
 
 ### Install
@@ -103,15 +111,38 @@ Key variables:
 | `WRITER_DB_*` | Primary PostgreSQL connection |
 | `READER_DB_*` | Read replica PostgreSQL connection |
 | `AWS_*` | S3 credentials and bucket for storage |
+| `METRICS_*` | Prometheus `/metrics` endpoint config |
+| `SERVICE_NAME` | Service name for observability labels |
 
 Environment is validated at startup via `src/config/env.config.ts`. The app exits with clear errors if required values are missing.
 
-### Database
+### Docker (full stack)
 
-Start PostgreSQL locally:
+Run CommCare with PostgreSQL and the observability stack:
 
 ```bash
-docker compose up -d
+cp env.docker-sample .env.docker
+docker compose up -d --build
+```
+
+| Service | URL |
+|---------|-----|
+| CommCare API | http://localhost:3000 |
+| Metrics | http://localhost:3000/metrics |
+| Prometheus | http://localhost:9090 |
+| Grafana | http://localhost:3001 (admin / admin) |
+| Loki | http://localhost:3100 |
+
+**Grafana dashboards to import:** Node Exporter Full (`1860`), PostgreSQL Database (`9628`).
+
+Logs in Grafana → Explore → Loki: `{service="app"}`
+
+### Database only (local dev)
+
+Start PostgreSQL only (when running the app locally with `pnpm run start:dev`):
+
+```bash
+docker compose up -d db
 ```
 
 ### Run

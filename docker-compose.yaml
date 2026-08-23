@@ -1,4 +1,24 @@
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: commcare-app
+    ports:
+      - '${HTTP_PORT:-3000}:3000'
+    env_file:
+      - .env.docker
+    environment:
+      HTTP_PORT: 3000
+      WRITER_DB_HOST: db
+      READER_DB_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - commcare
+    restart: unless-stopped
+
   db:
     image: postgres:15
     container_name: commcare-db
@@ -15,7 +35,109 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - commcare
     restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: commcare-prometheus
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./docker/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - commcare
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: commcare-grafana
+    ports:
+      - '3001:3000'
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - commcare
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: commcare-loki
+    ports:
+      - '3100:3100'
+    volumes:
+      - ./docker/observability/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - commcare
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:3.3.2
+    container_name: commcare-promtail
+    volumes:
+      - ./docker/observability/promtail-config.yaml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - commcare
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: commcare-node-exporter
+    ports:
+      - '9100:9100'
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - commcare
+    restart: unless-stopped
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    container_name: commcare-postgres-exporter
+    ports:
+      - '9187:9187'
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:postgres@db:5432/postgres?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - commcare
+    restart: unless-stopped
+
+networks:
+  commcare:
+    driver: bridge
 
 volumes:
   db_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:

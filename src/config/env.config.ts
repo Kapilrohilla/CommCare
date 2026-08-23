@@ -22,6 +22,10 @@ export const envSchema = z.object({
 	READER_DB_USER: z.string().min(1),
 	READER_DB_PASSWORD: z.string().min(1),
 	READER_DB_NAME: z.string().min(1),
+	METRICS_ENABLED: z.coerce.boolean().default(true),
+	METRICS_PATH: z.string().min(1).default('/metrics'),
+	SERVICE_NAME: z.string().min(1).default('commcare'),
+	LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
