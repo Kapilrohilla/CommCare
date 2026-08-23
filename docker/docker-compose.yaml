@@ -109,6 +109,8 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_LOG_RETENTION_BYTES: 104857600 # 100MB
+      KAFKA_LOG_RETENTION_MS: 86400000 # 1 day
     volumes:
       - kafka_data:/var/lib/kafka/data
     healthcheck:

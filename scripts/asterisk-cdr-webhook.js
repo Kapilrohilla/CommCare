@@ -1,5 +1,16 @@
 const net = require('net');
 require('dotenv').config();
+const pino = require('pino');
+
+const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  base: { service: 'asterisk-cdr-webhook' },
+  formatters: {
+    level(label) {
+      return { level: label };
+    },
+  },
+});
 
 const AMI_HOST = process.env.AMI_HOST || '127.0.0.1';
 const AMI_PORT = Number(process.env.AMI_PORT || 5038);
@@ -29,7 +40,7 @@ const requiredEnv = [
 
 for (const key of requiredEnv) {
   if (!process.env[key]) {
-    console.error(`[APP] Missing required env: ${key}`);
+    logger.fatal({ component: 'app', env: key }, 'Missing required env');
     process.exit(1);
   }
 }
@@ -90,8 +101,9 @@ function connect() {
     return;
   }
 
-  console.log(
-    `[AMI] Connecting to ${AMI_HOST}:${AMI_PORT}...`,
+  logger.info(
+    { component: 'ami', host: AMI_HOST, port: AMI_PORT },
+    'Connecting to AMI',
   );
 
   socket = net.createConnection({
@@ -102,12 +114,17 @@ function connect() {
   socket.setEncoding('utf8');
 
   socket.on('connect', () => {
-    console.log('[AMI] Connected');
+    logger.info({ component: 'ami' }, 'Connected to AMI');
 
     login();
   });
 
   socket.on('data', (data) => {
+    logger.debug(
+      { component: 'ami', bytes: data.length },
+      'AMI data received',
+    );
+
     buffer += data;
 
     let separator;
@@ -131,14 +148,14 @@ function connect() {
   });
 
   socket.on('error', (error) => {
-    console.error(
-      '[AMI] Error:',
-      error.message,
+    logger.error(
+      { component: 'ami', err: error },
+      'AMI connection error',
     );
   });
 
   socket.on('close', () => {
-    console.log('[AMI] Connection closed');
+    logger.info({ component: 'ami' }, 'AMI connection closed');
 
     socket = null;
 
@@ -162,20 +179,33 @@ function login() {
 
   socket.write(request);
 
-  console.log('[AMI] Login sent');
+  logger.info({ component: 'ami' }, 'AMI login sent');
 }
 
 function handleMessage(rawMessage) {
+  logger.debug(
+    { component: 'ami', rawMessage },
+    'AMI raw message received',
+  );
+
   const event = parseMessage(rawMessage);
+
+  logger.debug(
+    { component: 'ami', event },
+    'AMI event parsed',
+  );
 
   /**
    * AMI login/action responses are not call events.
    */
   if (event.Response) {
-    console.log(
-      `[AMI] Response: ${event.Response} - ${
-        event.Message || ''
-      }`,
+    logger.info(
+      {
+        component: 'ami',
+        response: event.Response,
+        message: event.Message || '',
+      },
+      'AMI action response',
     );
 
     return;
@@ -208,8 +238,9 @@ function handleMessage(rawMessage) {
     event.UniqueID;
 
   if (!callKey) {
-    console.warn(
-      `[AMI] Event ${event.Event} has no UniqueID/LinkedID`,
+    logger.warn(
+      { component: 'ami', eventName: event.Event },
+      'AMI event missing UniqueID/LinkedID',
     );
 
     return;
@@ -259,8 +290,9 @@ function handleMessage(rawMessage) {
   if (event.Event === 'Cdr') {
     call.cdrReceived = true;
 
-    console.log(
-      `[AMI] CDR received for LinkedID=${callKey}`,
+    logger.info(
+      { component: 'ami', linkedId: callKey },
+      'CDR received',
     );
 
     scheduleCallFinalization(callKey);
@@ -363,6 +395,15 @@ function parseMessage(rawMessage) {
     event[key] = value;
   }
 
+  // Normalize Asterisk field names
+  if (event.Uniqueid && !event.UniqueID) {
+    event.UniqueID = event.Uniqueid;
+  }
+
+  if (event.Linkedid && !event.LinkedID) {
+    event.LinkedID = event.Linkedid;
+  }
+
   return event;
 }
 
@@ -371,8 +412,9 @@ async function sendWebhook(payload) {
     payload.call?.linkedId ||
     'unknown';
 
-  console.log(
-    `[WEBHOOK] Sending call ${linkedId}`,
+  logger.info(
+    { component: 'webhook', linkedId },
+    'Sending webhook',
   );
 
   for (
@@ -419,22 +461,24 @@ async function sendWebhook(payload) {
               await response.text();
           }
 
-          console.error(
-            `[WEBHOOK] Attempt ${attempt} failed`,
-          );
-
-          console.error(
-            'Status:',
-            response.status,
-          );
-
-          console.error(
-            'Response:',
-            responseData,
+          logger.error(
+            {
+              component: 'webhook',
+              linkedId,
+              attempt,
+              status: response.status,
+              response: responseData,
+            },
+            'Webhook attempt failed',
           );
         } else {
-          console.log(
-            `[WEBHOOK] Success: ${response.status}`,
+          logger.info(
+            {
+              component: 'webhook',
+              linkedId,
+              status: response.status,
+            },
+            'Webhook delivered',
           );
 
           return;
@@ -443,9 +487,14 @@ async function sendWebhook(payload) {
         clearTimeout(timeoutId);
       }
     } catch (error) {
-      console.error(
-        `[WEBHOOK] Attempt ${attempt} failed:`,
-        error.message,
+      logger.error(
+        {
+          component: 'webhook',
+          linkedId,
+          attempt,
+          err: error,
+        },
+        'Webhook attempt failed',
       );
     }
 
@@ -456,16 +505,18 @@ async function sendWebhook(payload) {
       const delay =
         attempt * 2000;
 
-      console.log(
-        `[WEBHOOK] Retrying in ${delay}ms...`,
+      logger.info(
+        { component: 'webhook', linkedId, attempt, delayMs: delay },
+        'Retrying webhook',
       );
 
       await sleep(delay);
     }
   }
 
-  console.error(
-    `[WEBHOOK] Permanently failed for call ${linkedId}`,
+  logger.error(
+    { component: 'webhook', linkedId },
+    'Webhook permanently failed',
   );
 
   /**
@@ -491,10 +542,9 @@ function scheduleReconnect() {
     return;
   }
 
-  console.log(
-    `[AMI] Reconnecting in ${
-      RECONNECT_DELAY / 1000
-    } seconds...`,
+  logger.info(
+    { component: 'ami', delayMs: RECONNECT_DELAY },
+    'Scheduling AMI reconnect',
   );
 
   reconnectTimer = setTimeout(() => {
@@ -505,8 +555,9 @@ function scheduleReconnect() {
 }
 
 function shutdown(signal) {
-  console.log(
-    `\n[APP] Received ${signal}`,
+  logger.info(
+    { component: 'app', signal },
+    'Shutdown requested',
   );
 
   shuttingDown = true;
@@ -547,28 +598,14 @@ process.on('SIGTERM', () => {
   shutdown('SIGTERM');
 });
 
-console.log(
-  '========================================',
-);
-
-console.log(
-  ' Asterisk CDR Webhook Worker',
-);
-
-console.log(
-  '========================================',
-);
-
-console.log(
-  `AMI: ${AMI_HOST}:${AMI_PORT}`,
-);
-
-console.log(
-  `Webhook: ${WEBHOOK_URL}`,
-);
-
-console.log(
-  '========================================',
+logger.info(
+  {
+    component: 'app',
+    amiHost: AMI_HOST,
+    amiPort: AMI_PORT,
+    webhookUrl: WEBHOOK_URL,
+  },
+  'Asterisk CDR Webhook Worker started',
 );
 
 connect();

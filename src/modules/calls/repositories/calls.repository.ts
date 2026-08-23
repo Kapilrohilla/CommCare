@@ -39,4 +39,8 @@ export class CallsRepository {
 	async getCalls(): Promise<CallEntity[]> {
 		return this.readerRepository.find();
 	}
+
+	async findByLinkedId(linkedId: string): Promise<CallEntity | null> {
+		return this.readerRepository.findOne({ where: { linkedId } });
+	}
 }
