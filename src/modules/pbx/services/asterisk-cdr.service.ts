@@ -11,7 +11,7 @@ export class AsteriskCDRService {
 
 	async handleCdr(event: AsteriskCdrEvent) {
 		this.logger.log("handleCdr called")
-		this.logger.log(JSON.stringify(event))
+		this.logger.log(event)
 		this.logger.log("handleCdr ended")
 		//  const cdr = this.normalize(event);
 	
