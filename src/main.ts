@@ -1,7 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './container';
 import { env } from './config/env.config';
-import { ConsoleLogger } from '@nestjs/common';
+import { ConsoleLogger, Logger } from '@nestjs/common';
+import { setupBullMQUI } from './infra/bullmq/bullUI';
+import { BullMQProducerService } from './infra/bullmq/services/bullmq-producer.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -13,6 +15,18 @@ async function bootstrap() {
       colors: true
     })
   });
+
+  const logger = new Logger('Bootstrap');
+  const producerService = app.get(BullMQProducerService, { strict: false });
+
+  const bullmqReady = await producerService.connect({ retries: 5, delayMs: 2000 });
+  if (bullmqReady) {
+    logger.log('BullMQ producer ready');
+    await setupBullMQUI(app, producerService);
+  } else {
+    logger.warn('BullMQ unavailable — UI and job publishing disabled until Redis is reachable');
+  }
+
   await app.listen(env.HTTP_PORT);
 }
 

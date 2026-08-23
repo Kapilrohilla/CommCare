@@ -27,6 +27,26 @@ METRICS_PATH=/metrics
 SERVICE_NAME=commcare
 LOG_LEVEL=info
 
+# Redis (docker/docker-compose.infra.yaml → localhost; full stack → redis)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_TLS=false
+
+# Kafka (docker/docker-compose.infra.yaml → localhost:9092; full stack → kafka:9092)
+KAFKA_BROKERS=localhost:9092
+KAFKA_CLIENT_ID=commcare
+KAFKA_GROUP_ID=commcare-group
+KAFKA_SUBSCRIBER=NONE
+
+# BullMQ (requires Redis)
+BULLMQ_SCHEDULER_ENABLED=false
+BULLMQ_CONSUMERS_ENABLED=false
+BULLMQ_SUBSCRIBER=NONE
+BULLMQ_WORKER_CONCURRENCY=5
+BULLMQ_UI_ENABLED=true
+BULLMQ_UI_PATH=/admin/queues
+
 # Asterisk AMI (for asterisk-cdr-worker)
 AMI_HOST=127.0.0.1
 AMI_PORT=5038

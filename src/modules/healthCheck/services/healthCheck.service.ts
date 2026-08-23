@@ -1,5 +1,4 @@
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
-import { env } from '../../../config/env.config';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import {
 	DB_CONNECTION_READER,
 	DB_CONNECTION_WRITER,
@@ -37,6 +36,8 @@ type ReadyzResponse = {
 
 @Injectable()
 export class HealthCheckService {
+	private readonly logger = new Logger(HealthCheckService.name);
+
 	constructor(private readonly postgresqlService: PostgresqlService) {}
 
 	public async health(): Promise<HealthResponse> {
@@ -101,5 +102,14 @@ export class HealthCheckService {
 
 	private isHealthy(checks: HealthChecks): boolean {
 		return Object.values(checks).every((check) => check.status === 'ok');
+	}
+
+	async handleEventHealthCheckPerformed(
+		eventName: string,
+		payload: unknown,
+		retryCount: number,
+	): Promise<void> {
+		this.logger.log(`Handling ${eventName} (retry ${retryCount})`, payload);
+		await this.health();
 	}
 }

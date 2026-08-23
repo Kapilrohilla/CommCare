@@ -116,13 +116,28 @@ Key variables:
 
 Environment is validated at startup via `src/config/env.config.ts`. The app exits with clear errors if required values are missing.
 
-### Docker (full stack)
+### Docker — infrastructure only (local dev)
 
-Run CommCare with PostgreSQL and the observability stack:
+Run PostgreSQL, Redis, and Kafka while developing on the host:
 
 ```bash
-cp env.docker-sample .env.docker
-docker compose up -d --build
+docker compose -f docker/docker-compose.infra.yaml up -d
+```
+
+Use these in your `.env`:
+
+| Variable | Value |
+|----------|-------|
+| `WRITER_DB_HOST` / `READER_DB_HOST` | `localhost` |
+| `REDIS_HOST` | `localhost` |
+| `KAFKA_BROKERS` | `localhost:9092` |
+
+### Docker (full stack)
+
+Run CommCare with PostgreSQL, Redis, Kafka, and the observability stack:
+
+```bash
+docker compose -f docker/docker-compose.yaml up -d --build
 ```
 
 | Service | URL |
@@ -132,18 +147,12 @@ docker compose up -d --build
 | Prometheus | http://localhost:9090 |
 | Grafana | http://localhost:3001 (admin / admin) |
 | Loki | http://localhost:3100 |
+| Redis | localhost:6379 |
+| Kafka | localhost:9092 |
 
 **Grafana dashboards to import:** Node Exporter Full (`1860`), PostgreSQL Database (`9628`).
 
 Logs in Grafana → Explore → Loki: `{service="app"}`
-
-### Database only (local dev)
-
-Start PostgreSQL only (when running the app locally with `pnpm run start:dev`):
-
-```bash
-docker compose up -d db
-```
 
 ### Run
 
