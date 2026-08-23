@@ -128,62 +128,7 @@ function parseMessage(rawMessage) {
 async function sendWebhook(cdr) {
   const payload = {
     event: 'call.completed',
-
-    cdr: {
-      accountCode: cdr.AccountCode || null,
-
-      source: cdr.Source || null,
-      destination: cdr.Destination || null,
-
-      destinationContext:
-        cdr.DestinationContext || null,
-
-      callerId: cdr.CallerID || null,
-
-      channel: cdr.Channel || null,
-
-      destinationChannel:
-        cdr.DestinationChannel || null,
-
-      lastApplication:
-        cdr.LastApplication || null,
-
-      lastData:
-        cdr.LastData || null,
-
-      startTime:
-        cdr.StartTime || null,
-
-      answerTime:
-        cdr.AnswerTime || null,
-
-      endTime:
-        cdr.EndTime || null,
-
-      duration:
-        Number(cdr.Duration || 0),
-
-      billableSeconds:
-        Number(cdr.BillableSeconds || 0),
-
-      disposition:
-        cdr.Disposition || null,
-
-      amaFlags:
-        cdr.AMAFlags || null,
-
-      uniqueId:
-        cdr.UniqueID || null,
-
-      linkedId:
-        cdr.LinkedID || null,
-
-      userField:
-        cdr.UserField || null,
-    },
-
     raw: cdr,
-
     receivedAt: new Date().toISOString(),
   };
 

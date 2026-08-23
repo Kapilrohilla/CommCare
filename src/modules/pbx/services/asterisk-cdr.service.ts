@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { ConsoleLogger, Injectable} from "@nestjs/common";
 import { CallsService } from "src/modules/calls/services/calls.service";
 import { AsteriskCdrEvent } from "../dto/asterisk-cdr.dto";
 
@@ -6,13 +6,13 @@ import { AsteriskCdrEvent } from "../dto/asterisk-cdr.dto";
 @Injectable()
 export class AsteriskCDRService {
 
-	constructor(private readonly callService: CallsService) {}
+	constructor(private readonly callService: CallsService, private readonly logger: ConsoleLogger) {}
 
 
 	async handleCdr(event: AsteriskCdrEvent) {
-		console.log("handleCdr called")
-		console.log(JSON.stringify(event))
-		console.log("handleCdr ended")
+		this.logger.log("handleCdr called")
+		this.logger.log(JSON.stringify(event))
+		this.logger.log("handleCdr ended")
 		//  const cdr = this.normalize(event);
 	
 		// await this.callService.processCdr(cdr, null);
