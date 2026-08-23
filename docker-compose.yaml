@@ -19,6 +19,22 @@ services:
       - commcare
     restart: unless-stopped
 
+  asterisk-cdr-worker:
+    build:
+      context: .
+      dockerfile: docker/asterisk-cdr-worker/Dockerfile
+    container_name: commcare-asterisk-cdr-worker
+    env_file:
+      - .env
+    environment:
+      WEBHOOK_URL: http://app:3000/pbx/asterisk/cdr/webhook
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - commcare
+    restart: unless-stopped
+
   db:
     image: postgres:15
     container_name: commcare-db

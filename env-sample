@@ -26,3 +26,14 @@ METRICS_ENABLED=true
 METRICS_PATH=/metrics
 SERVICE_NAME=commcare
 LOG_LEVEL=info
+
+# Asterisk AMI (for asterisk-cdr-worker)
+AMI_HOST=127.0.0.1
+AMI_PORT=5038
+AMI_USERNAME=your_ami_user
+AMI_SECRET=your_ami_secret
+
+# Local dev only — Docker Compose overrides this for asterisk-cdr-worker
+WEBHOOK_URL=http://localhost:3000/pbx/asterisk/cdr/webhook
+WEBHOOK_TIMEOUT=10000
+WEBHOOK_RETRIES=3

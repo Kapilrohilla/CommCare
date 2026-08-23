@@ -9,6 +9,14 @@ const AMI_SECRET = process.env.AMI_SECRET;
 
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 
+const requiredEnv = ['AMI_USERNAME', 'AMI_SECRET', 'WEBHOOK_URL'];
+for (const key of requiredEnv) {
+  if (!process.env[key]) {
+    console.error(`[APP] Missing required env: ${key}`);
+    process.exit(1);
+  }
+}
+
 let socket;
 let buffer = '';
 let reconnectTimer;
