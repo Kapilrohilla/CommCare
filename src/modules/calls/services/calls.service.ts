@@ -17,4 +17,12 @@ export class CallsService {
 	async createCall(call: CallEntity): Promise<CallEntity> {
 		return this.callsRepository.createCall(call);
 	}
+
+	async processCdr(cdr,pbxContext): Promise<void> {
+		// code to process the cdr
+		console.log("processCDR called")
+		console.log(pbxContext)
+		console.log(cdr);
+		console.log("processCDR ended")
+	}
 }

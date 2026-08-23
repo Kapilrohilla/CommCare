@@ -1,6 +1,8 @@
 import { Controller } from "@nestjs/common";
 
-@Controller()
+@Controller('/pbx')
 export class PbxController {
+
+	// constructor(private readonly asteriskController: AsteriskController) {}
 
 }
