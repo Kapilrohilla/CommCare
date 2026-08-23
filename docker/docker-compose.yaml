@@ -21,6 +21,9 @@ services:
       READER_DB_HOST: db
       REDIS_HOST: redis
       KAFKA_BROKERS: kafka:9092
+      TRACING_ENABLED: 'true'
+      OTEL_SERVICE_NAME: commcare
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     depends_on:
       db:
         condition: service_healthy
@@ -28,6 +31,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      otel-collector:
+        condition: service_started
     networks:
       - commcare
     restart: unless-stopped
@@ -116,6 +121,34 @@ services:
       - commcare
     restart: unless-stopped
 
+  tempo:
+    image: grafana/tempo:2.7.2
+    container_name: commcare-tempo
+    ports:
+      - '3200:3200'
+    volumes:
+      - ./observability/tempo-config.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    command: ['-config.file=/etc/tempo/tempo.yaml']
+    networks:
+      - commcare
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.116.1
+    container_name: commcare-otel-collector
+    ports:
+      - '4317:4317'
+      - '4318:4318'
+    volumes:
+      - ./observability/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    command: ['--config=/etc/otelcol-contrib/config.yaml']
+    depends_on:
+      - tempo
+    networks:
+      - commcare
+    restart: unless-stopped
+
   prometheus:
     image: prom/prometheus:v2.55.1
     container_name: commcare-prometheus
@@ -146,6 +179,7 @@ services:
     depends_on:
       - prometheus
       - loki
+      - tempo
     networks:
       - commcare
     restart: unless-stopped
@@ -220,3 +254,4 @@ volumes:
   prometheus_data:
   grafana_data:
   loki_data:
+  tempo_data:

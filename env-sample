@@ -26,6 +26,8 @@ METRICS_ENABLED=true
 METRICS_PATH=/metrics
 SERVICE_NAME=commcare
 LOG_LEVEL=info
+TRACING_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 
 # Redis (docker/docker-compose.infra.yaml → localhost; full stack → redis)
 REDIS_HOST=localhost

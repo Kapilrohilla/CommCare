@@ -5,6 +5,8 @@ export const observabilityConfig = {
 	metricsPath: env.METRICS_PATH,
 	serviceName: env.SERVICE_NAME,
 	logLevel: env.LOG_LEVEL,
+	tracingEnabled: env.TRACING_ENABLED,
+	otlpEndpoint: env.OTEL_EXPORTER_OTLP_ENDPOINT,
 };
 
 export const HTTP_REQUESTS_TOTAL = 'http_requests_total';

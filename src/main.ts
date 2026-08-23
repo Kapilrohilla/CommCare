@@ -1,3 +1,4 @@
+import './infra/observability/tracing/tracing';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './container';
 import { env } from './config/env.config';
