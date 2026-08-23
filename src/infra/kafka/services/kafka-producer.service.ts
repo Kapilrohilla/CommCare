@@ -84,7 +84,7 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
       .catch((e) => {
         const error = e instanceof Error ? e : new Error(String(e));
         this.logger.error(`[kafka-carrum-service-producer] ${error.message}`, error);
-      });
+      })
   }
 
   async publishEvent(eventName: string, message: unknown): Promise<void> {

@@ -1,4 +1,4 @@
-class ResponseService {
+export class ResponseService {
 
 	public static async success(message: string, data: any): Promise<any> {
 		return {

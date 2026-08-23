@@ -1,10 +1,11 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { Worker, Job, DelayedError } from 'bullmq';
 import { ClsService } from '../../../shared/context/cls.service';
 import IORedis from 'ioredis';
 import { env } from '../../../config/env.config';
-import { buildRedisOptions } from '../../redis/redis.config';
+import { buildRedisOptions, connectRedisClient } from '../../redis/redis.config';
+import { BullMQSubscriberService } from './bullmq-subscriber.service';
 import { DelayedRetryError } from '../delayedRetryError';
 
 export interface EventListener {
@@ -31,7 +32,7 @@ export interface CsvBatchTracker {
 export const CSV_BATCH_TRACKER_TOKEN = 'CSV_BATCH_TRACKER_TOKEN';
 
 @Injectable()
-export class BullMQConsumerService implements OnModuleInit {
+export class BullMQConsumerService implements OnApplicationBootstrap {
   private readonly logger = new Logger(BullMQConsumerService.name);
   private connection: IORedis | null = null;
   private listenerConfig: Map<string, EventListener[]> = new Map();
@@ -44,14 +45,16 @@ export class BullMQConsumerService implements OnModuleInit {
   constructor(
     private readonly cls: ClsService,
     private readonly moduleRef: ModuleRef,
+    private readonly bullmqSubscriber: BullMQSubscriberService,
   ) {}
 
-  async onModuleInit() {
+  async onApplicationBootstrap() {
     try {
       this.batchTracker = this.moduleRef.get(CSV_BATCH_TRACKER_TOKEN, { strict: false });
     } catch {
       this.logger.log('[bullmq-carrum-consumer] CsvBatchTracker not available, batch tracking disabled');
     }
+    this.bullmqSubscriber.registerSubscriptions();
     await this.init();
   }
 
@@ -103,8 +106,13 @@ export class BullMQConsumerService implements OnModuleInit {
       this.logger.warn('Redis connection error:', error instanceof Error ? error.message : error);
     });
 
+    const connected = await connectRedisClient(this.connection, { retries: 5, delayMs: 2000 });
+    if (!connected) {
+      this.logger.warn('[bullmq-carrum-consumer] Redis connection failed. Consumers unavailable.');
+      return;
+    }
+
     try {
-      await this.connection.ping();
       this.logger.log('[bullmq-carrum-consumer] Connected to Redis');
 
       if (this.listenerConfig.size === 0) {
@@ -243,8 +251,11 @@ export class BullMQConsumerService implements OnModuleInit {
       }
 
       this.handleSignals();
-    } catch (_error) {
-      this.logger.warn('[bullmq-carrum-consumer] Initialization failed. Consumers unavailable.');
+    } catch (error) {
+      this.logger.warn(
+        '[bullmq-carrum-consumer] Initialization failed. Consumers unavailable.',
+        error instanceof Error ? error.message : error,
+      );
     }
   }
 

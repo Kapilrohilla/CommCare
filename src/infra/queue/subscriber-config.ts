@@ -1,4 +1,5 @@
-import { Events } from './constants/event.constant';
+import { AsteriskCDRService } from 'src/modules/pbx/services/asterisk-cdr.service';
+import { Events } from '../../constants/event.constant';
 import { HealthCheckService } from '../../modules/healthCheck/services/healthCheck.service';
 /**
  * Subscriber Configuration
@@ -67,6 +68,12 @@ export const SUBSCRIBER_CONFIGS: SubscriberConfig[] = [
     serviceClass: HealthCheckService,
     subscriberServiceName: 'healthService',
   },
+  {
+    eventName: Events.cdrEvent,
+    serviceClass: AsteriskCDRService,
+    subscriberServiceName: 'asteriskCDRService',
+    concurrency: 10,
+  }
 ];
 
 /**

@@ -1,4 +1,4 @@
-import { Events } from './constants/event.constant';
+import { Events } from '../../constants/event.constant';
 
 /**
  * Scheduler Configuration

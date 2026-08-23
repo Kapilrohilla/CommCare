@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
 import { resolve } from 'node:path';
+import { Environment } from 'src/constants/environmentConstants';
 import z from 'zod';
 
 config({ path: resolve(process.cwd(), '.env') });
@@ -17,7 +18,7 @@ const envBoolean = (defaultValue: boolean) =>
 
 export const envSchema = z.object({
 	HTTP_PORT: z.coerce.number().int().positive().default(3000),
-	ENV: z.enum(['development', 'production', 'test']).default('development'),
+	ENV: z.enum([Environment.LOCAL, Environment.PRODUCTION, Environment.TEST]).default(Environment.LOCAL),
 	AWS_REGION: z.string().min(1).default('us-east-1'),
 	AWS_S3_BUCKET: z.string().min(1),
 	AWS_ACCESS_KEY_ID: z.string().min(1).optional(),
@@ -47,7 +48,6 @@ export const envSchema = z.object({
 	KAFKA_HOST_IP: z.string().optional(),
 	KAFKA_CLIENT_ID: z.string().default('commcare'),
 	KAFKA_GROUP_ID: z.string().default('commcare-group'),
-	KAFKA_TOPIC_SUBSCRIBER: z.string().optional(),
 	KAFKA_SUBSCRIBER: z.enum(['ALL', 'DEFAULT', 'NONE']).default('NONE'),
 	KAFKA_SSL_ENABLED: envBoolean(false),
 	KAFKA_SECURITY_PROTOCOL: z.string().optional(),

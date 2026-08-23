@@ -1,74 +1,36 @@
-import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { env } from '../../../config/env.config';
 import { BullMQConsumerService } from './bullmq-consumer.service';
 import { BullMQProducerService } from './bullmq-producer.service';
 import { getSubscriberConfigsByEvent } from '../../queue/subscriber-config';
 
-/**
- * BullMQ Subscriber Service
- * This service registers all BullMQ event subscriptions for the application
- * Configuration is loaded from queue/subscriberConfig.ts
- */
 @Injectable()
-export class BullMQSubscriberService implements OnModuleInit {
+export class BullMQSubscriberService {
   private readonly logger = new Logger(BullMQSubscriberService.name);
   private readonly serviceCache = new Map<string, unknown>();
+  private registered = false;
 
   constructor(
     private readonly moduleRef: ModuleRef,
-    @Optional() private readonly bullmqConsumer?: BullMQConsumerService,
-    @Optional() private readonly bullmqProducer?: BullMQProducerService,
-  ) {
-    // CRITICAL: Register subscriptions in constructor to ensure they happen
-    // before BullMQConsumerService.init() runs (which happens in onModuleInit)
-    // subscribeEvent() just stores data in Maps, so it's safe to call here
-    // This ensures workers are created for all subscribed events
-    this.init();
-  }
+    private readonly bullmqProducer: BullMQProducerService,
+  ) {}
 
-  async onModuleInit() {}
-
-  /**
-   * Generic service resolver - dynamically resolves any service using ModuleRef
-   * Caches resolved services to avoid repeated lookups
-   */
-  private getService<T>(ServiceClass: new (...args: unknown[]) => T, serviceName: string): T | null {
-    const cacheKey = serviceName;
-    if (this.serviceCache.has(cacheKey)) {
-      return this.serviceCache.get(cacheKey) as T;
+  registerSubscriptions(): void {
+    if (this.registered) {
+      return;
     }
+    this.registered = true;
 
-    try {
-      const service = this.moduleRef.get(ServiceClass, { strict: false });
-      this.serviceCache.set(cacheKey, service);
-      return service;
-    } catch {
-      this.logger.warn(`${serviceName} unavailable, skipping related subscriptions`);
-      return null;
-    }
-  }
-
-  private init(): void {
     const mode = env.BULLMQ_SUBSCRIBER;
     this.logger.log(`Initializing BullMQ subscribers: ${mode}`);
-    if (mode === 'ALL' || mode === 'DEFAULT') {
-      this.registerBullMQSubscribers();
-    } else {
-      this.logger.warn(`Unknown mode: ${mode}`);
-    }
-  }
 
-  /**
-   * Register BullMQ subscribers from the centralized configuration
-   * All events are processed by BullMQ workers
-   */
-  private registerBullMQSubscribers(): void {
-    if (!this.bullmqConsumer) {
-      this.logger.warn('BullMQConsumer not available, skipping BullMQ subscriptions');
+    if (mode !== 'ALL' && mode !== 'DEFAULT') {
+      this.logger.log('BullMQ subscribers disabled');
       return;
     }
 
+    const bullmqConsumer = this.moduleRef.get(BullMQConsumerService, { strict: false });
     const configsByEvent = getSubscriberConfigsByEvent();
     let subscriptionCount = 0;
 
@@ -77,7 +39,7 @@ export class BullMQSubscriberService implements OnModuleInit {
         const service = this.getService(config.serviceClass, config.subscriberServiceName);
         if (!service) continue;
 
-        this.bullmqConsumer.subscribeEvent(
+        bullmqConsumer.subscribeEvent(
           eventName,
           {
             listener: service as {
@@ -91,7 +53,7 @@ export class BullMQSubscriberService implements OnModuleInit {
             : undefined,
         );
 
-        if (config.maxAttempts && this.bullmqProducer) {
+        if (config.maxAttempts) {
           this.bullmqProducer.setEventMaxAttempts(eventName, config.maxAttempts);
         }
 
@@ -100,6 +62,21 @@ export class BullMQSubscriberService implements OnModuleInit {
       }
     }
 
-    this.logger.log(`Registered ${subscriptionCount} BullMQ workers`);
+    this.logger.log(`Registered ${subscriptionCount} BullMQ worker subscriptions`);
+  }
+
+  private getService<T>(ServiceClass: new (...args: unknown[]) => T, serviceName: string): T | null {
+    if (this.serviceCache.has(serviceName)) {
+      return this.serviceCache.get(serviceName) as T;
+    }
+
+    try {
+      const service = this.moduleRef.get(ServiceClass, { strict: false });
+      this.serviceCache.set(serviceName, service);
+      return service;
+    } catch {
+      this.logger.warn(`${serviceName} unavailable, skipping related subscriptions`);
+      return null;
+    }
   }
 }

@@ -7,4 +7,5 @@
  */
 export const Events = {
 	healthCheckPerformed: 'healthCheckPerformed',
+	cdrEvent: 'cdrEvent'
 };

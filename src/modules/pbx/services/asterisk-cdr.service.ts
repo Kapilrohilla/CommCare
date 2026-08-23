@@ -1,49 +1,23 @@
 import { ConsoleLogger, Injectable} from "@nestjs/common";
 import { CallsService } from "src/modules/calls/services/calls.service";
 import { AsteriskCdrEvent } from "../dto/asterisk-cdr.dto";
-
+import { EventProducer } from "src/infra/queue/services/event-producer.service";
+import { Events } from "src/constants/event.constant";
 
 @Injectable()
 export class AsteriskCDRService {
 
-	constructor(private readonly callService: CallsService, private readonly logger: ConsoleLogger) {}
+	constructor(private readonly callService: CallsService, private readonly logger: ConsoleLogger, private readonly eventProducer: EventProducer) {}
 
 
 	async handleCdr(event: AsteriskCdrEvent) {
-		// {
-		// 	event: 'call.completed',
-		// 	raw: {
-		// 	  Event: 'Cdr',
-		// 	  Privilege: 'cdr,all',
-		// 	  AccountCode: '',
-		// 	  Source: '102',
-		// 	  Destination: '101',
-		// 	  DestinationContext: 'from-internal',
-		// 	  CallerID: '"Kapil mobile" <102>',
-		// 	  Channel: 'PJSIP/102-00000019',
-		// 	  DestinationChannel: 'PJSIP/101-0000001a',
-		// 	  LastApplication: 'Dial',
-		// 	  LastData: 'PJSIP/101/sip:101@103.211.54.233:60044;rinstance=29a886c9ae428852,,HhTtrb(func-',
-		// 	  StartTime: '2026-08-23 11:58:43',
-		// 	  AnswerTime: '2026-08-23 11:58:45',
-		// 	  EndTime: '2026-08-23 11:58:49',
-		// 	  Duration: '6',
-		// 	  BillableSeconds: '3',
-		// 	  Disposition: 'ANSWERED',
-		// 	  AMAFlags: 'DOCUMENTATION',
-		// 	  UniqueID: '1787486323.25',
-		// 	  UserField: ''
-		// 	},
-		// 	receivedAt: '2026-08-23T11:58:49.678Z'
-		//   }
 
-		
-		
-		// I want to extract the data to save the event
+		this.logger.log(`Handling CDR event: ${JSON.stringify(event)}`);
+		await this.eventProducer.publish(Events.cdrEvent, event);
 
-		//  const cdr = this.normalize(event);
-	
-		// await this.callService.processCdr(cdr, null);
+		return {
+			message: 'CDR event published',
+		}
 	  }
 
 
@@ -65,6 +39,16 @@ export class AsteriskCDRService {
 		  amaFlags: event.AMAFlags,
 		  userField: event.UserField || null,
 		};
-	  }
+	}
+
+	public async handleEventCdrEvent(
+		eventName: string,
+		payload: unknown,
+		retryCount: number,
+	): Promise<void> {
+		this.logger.log(`Handling ${eventName} (retry ${retryCount})`, payload);
+		const cdr = this.normalize(payload as AsteriskCdrEvent);
+		await this.callService.processCdr(cdr, null);
+	}
 }
 

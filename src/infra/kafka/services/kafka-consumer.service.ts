@@ -1,9 +1,10 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy, Optional } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy, Optional } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ClsService } from '../../../shared/context/cls.service';
 import { Consumer, EachMessagePayload, Kafka } from 'kafkajs';
 import { BullMQProducerService } from '../../bullmq/services/bullmq-producer.service';
 import { KafkaProducerService } from './kafka-producer.service';
+import { KafkaSubscriberService } from './kafka-subscriber.service';
 import { env } from '../../../config/env.config';
 import { buildKafkaConfig } from '../kafkaConfig';
 
@@ -18,7 +19,7 @@ export interface EventListener {
 }
 
 @Injectable()
-export class KafkaConsumerService implements OnModuleInit, OnModuleDestroy {
+export class KafkaConsumerService implements OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(KafkaConsumerService.name);
   private consumer: Consumer | null = null;
   private listenerConfig: Map<string, EventListener[]> = new Map();
@@ -29,11 +30,13 @@ export class KafkaConsumerService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private readonly cls: ClsService,
     private readonly moduleRef: ModuleRef,
+    private readonly kafkaSubscriber: KafkaSubscriberService,
     @Optional() private readonly bullmqEventProducer?: BullMQProducerService,
     @Optional() private readonly kafkaProducer?: KafkaProducerService,
   ) {}
 
-  async onModuleInit() {
+  async onApplicationBootstrap() {
+    this.kafkaSubscriber.registerSubscriptions();
     await this.init();
   }
 
@@ -67,8 +70,8 @@ export class KafkaConsumerService implements OnModuleInit, OnModuleDestroy {
   private static readonly CONNECT_RETRY_DELAY_MS = 3000;
 
   private async init(): Promise<void> {
-    if (!env.KAFKA_TOPIC_SUBSCRIBER) {
-      this.logger.log('Kafka consumer disabled');
+    if (env.KAFKA_SUBSCRIBER === 'NONE') {
+      this.logger.log('Kafka consumer disabled (KAFKA_SUBSCRIBER=NONE)');
       return;
     }
 

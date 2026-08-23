@@ -1,4 +1,5 @@
 import { env } from '../../config/env.config';
+import IORedis from 'ioredis';
 import type { RedisOptions } from 'ioredis';
 
 export function buildRedisOptions(overrides: Partial<RedisOptions> = {}): RedisOptions {
@@ -22,4 +23,28 @@ export function buildRedisOptions(overrides: Partial<RedisOptions> = {}): RedisO
 	}
 
 	return options;
+}
+
+export async function connectRedisClient(
+	connection: IORedis,
+	options?: { retries?: number; delayMs?: number },
+): Promise<boolean> {
+	const retries = options?.retries ?? 5;
+	const delayMs = options?.delayMs ?? 2000;
+
+	for (let attempt = 1; attempt <= retries; attempt++) {
+		try {
+			if (connection.status === 'wait' || connection.status === 'close') {
+				await connection.connect();
+			}
+			await connection.ping();
+			return true;
+		} catch {
+			if (attempt < retries) {
+				await new Promise((resolve) => setTimeout(resolve, delayMs));
+			}
+		}
+	}
+
+	return false;
 }

@@ -4,7 +4,7 @@ import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import { env } from '../../config/env.config';
 import { BullMQProducerService } from './services/bullmq-producer.service';
-import { Events } from '../queue/constants/event.constant';
+import { Events } from '../../constants/event.constant';
 
 function getAllEventNames(): string[] {
 	return Object.values(Events);
