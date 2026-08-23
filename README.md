@@ -1,98 +1,142 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# CommCare
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+CommCare is a backend service layer that sits **above Asterisk**. It exposes APIs and business logic for multi-tenant communication workflows while Asterisk handles the core telephony stack (SIP, media, dialplan, and call routing).
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+CommCare does not replace Asterisk. It orchestrates, extends, and integrates with it — providing tenancy, storage, health monitoring, and higher-level PBX services that applications and operators can consume without talking to Asterisk directly.
 
-## Description
+## Architecture
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+```mermaid
+flowchart TB
+    Clients[Clients / Admin UI / Integrations]
+    CommCare[CommCare API Layer]
+    Asterisk[Asterisk PBX]
+    PG[(PostgreSQL)]
+    S3[(Object Storage)]
 
-## Project setup
-
-```bash
-$ pnpm install
+    Clients --> CommCare
+    CommCare --> Asterisk
+    CommCare --> PG
+    CommCare --> S3
 ```
 
-## Compile and run the project
+| Layer | Responsibility |
+|-------|----------------|
+| **CommCare** | REST APIs, tenancy, call orchestration, file storage, health checks |
+| **Asterisk** | SIP trunks, extensions, IVR, queues, media, dialplan execution |
+| **PostgreSQL** | Application data with reader/writer connections |
+| **S3** | Recordings, attachments, and other object storage |
 
-```bash
-# development
-$ pnpm run start
+## Tech stack
 
-# watch mode
-$ pnpm run start:dev
+- [NestJS](https://nestjs.com) — application framework
+- [TypeORM](https://typeorm.io) — PostgreSQL ORM (reader/writer)
+- [Zod](https://zod.dev) — environment validation
+- [AWS S3](https://aws.amazon.com/s3/) — object storage (presigned URLs)
+- [Asterisk](https://www.asterisk.org/) — underlying PBX (external)
 
-# production mode
-$ pnpm run start:prod
+## Project structure
+
+```
+src/
+├── config/              # Validated environment config
+├── constants/           # App-level constants
+├── infra/
+│   ├── database/        # PostgreSQL + TypeORM (reader/writer)
+│   └── storage/         # S3 storage abstraction
+├── modules/
+│   ├── healthCheck/     # Liveness & readiness probes
+│   ├── pbx/             # PBX orchestration + Asterisk integration
+│   └── tenancy/         # Multi-tenant management
+└── shared/              # Pipes, response helpers
 ```
 
-## Run tests
+## Modules
+
+### PBX
+Wraps Asterisk operations and exposes higher-level PBX APIs. The `AsteriskService` is the integration point with the Asterisk server (AMI, ARI, or other interfaces as implemented).
+
+### Tenancy
+Manages tenants in a multi-tenant deployment. Each tenant can map to isolated PBX configuration, users, and resources on Asterisk.
+
+### Health check
+Kubernetes-friendly endpoints:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /healthCheck/health` | Overall status with dependency details |
+| `GET /healthCheck/livez` | Liveness — process is running |
+| `GET /healthCheck/readyz` | Readiness — DB connections are healthy |
+
+### Storage
+S3-backed presigned URL API for uploads, downloads, deletes, and existence checks (e.g. call recordings, voicemails, documents).
+
+## Getting started
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm
+- Docker (for local PostgreSQL)
+- Asterisk server (separate deployment)
+
+### Install
 
 ```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+pnpm install
 ```
 
-## Deployment
+### Environment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Copy the sample env file and adjust values:
 
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+cp env-sample .env
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Key variables:
 
-## Resources
+| Variable | Description |
+|----------|-------------|
+| `HTTP_PORT` | API server port (default `3000`) |
+| `ENV` | `development` \| `production` \| `test` |
+| `WRITER_DB_*` | Primary PostgreSQL connection |
+| `READER_DB_*` | Read replica PostgreSQL connection |
+| `AWS_*` | S3 credentials and bucket for storage |
 
-Check out a few resources that may come in handy when working with NestJS:
+Environment is validated at startup via `src/config/env.config.ts`. The app exits with clear errors if required values are missing.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+### Database
 
-## Support
+Start PostgreSQL locally:
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```bash
+docker compose up -d
+```
 
-## Stay in touch
+### Run
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+# development (watch mode)
+pnpm run start:dev
+
+# production build
+pnpm run build
+pnpm run start:prod
+```
+
+API listens on `http://localhost:3000` (or your configured `HTTP_PORT`).
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `pnpm run start:dev` | Start with hot reload |
+| `pnpm run build` | Compile TypeScript |
+| `pnpm run lint` | ESLint |
+| `pnpm run test` | Unit tests |
+| `pnpm run test:e2e` | End-to-end tests |
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+UNLICENSED — private project.
