@@ -1,16 +1,16 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { CallsEntity } from "../entity/calls.entity";
+import { CallEntity } from "../entity/calls.entity";
 import { BaseRepository } from "src/infra/database/connectors/baseRepository";
 
 @Injectable()
 export class CallsRepository {
-	constructor(private readonly baseRepository: BaseRepository<CallsEntity>) {}
+	constructor(private readonly baseRepository: BaseRepository<CallEntity>) {}
 
-	async createCall(call: CallsEntity): Promise<CallsEntity> {
+	async createCall(call: CallEntity): Promise<CallEntity> {
 		return this.baseRepository.save(call);
 	}
 
-	async updateCall(call: CallsEntity): Promise<CallsEntity> {
+	async updateCall(call: CallEntity): Promise<CallEntity> {
 		return this.baseRepository.save(call);
 	}
 
@@ -18,7 +18,7 @@ export class CallsRepository {
 		await this.baseRepository.delete(id);
 	}
 
-	async getCallById(id: string): Promise<CallsEntity> {
+	async getCallById(id: string): Promise<CallEntity> {
 		const call = await this.baseRepository.findOne({ where: { id } });
 		if (!call) {
 			throw new NotFoundException('Call not found');
@@ -26,7 +26,7 @@ export class CallsRepository {
 		return call;
 	}
 
-	async getCalls(): Promise<CallsEntity[]> {
+	async getCalls(): Promise<CallEntity[]> {
 		return this.baseRepository.find();
 	}
 }
