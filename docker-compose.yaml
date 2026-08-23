@@ -7,7 +7,7 @@ services:
     ports:
       - '${HTTP_PORT:-3000}:3000'
     env_file:
-      - .env.docker
+      - .env
     environment:
       HTTP_PORT: 3000
       WRITER_DB_HOST: db
