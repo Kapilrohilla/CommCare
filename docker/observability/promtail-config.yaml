@@ -21,3 +21,16 @@ scrape_configs:
         target_label: stream
       - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
         target_label: service
+    pipeline_stages:
+      - match:
+          selector: '{service="asterisk-cdr-worker"}'
+          stages:
+            - json:
+                expressions:
+                  level: level
+                  msg: msg
+                  component: component
+                  linkedId: linkedId
+            - labels:
+                level:
+                component:
