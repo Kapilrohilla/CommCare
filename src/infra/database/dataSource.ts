@@ -32,5 +32,8 @@ export function createWriterDataSourceOptions(): DataSourceOptions {
 }
 
 export function createReaderDataSourceOptions(): DataSourceOptions {
-	return createBaseDataSourceOptions(readerDbConfig);
+	return {
+		...createBaseDataSourceOptions(readerDbConfig),
+		synchronize: false,
+	};
 }

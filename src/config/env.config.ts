@@ -64,6 +64,7 @@ export const envSchema = z.object({
 	BULLMQ_WORKER_CONCURRENCY: z.coerce.number().int().positive().default(5),
 	BULLMQ_UI_ENABLED: envBoolean(false),
 	BULLMQ_UI_PATH: z.string().min(1).default('/infra/bullmq/queues'),
+	JWT_SECRET: z.string().min(32).default('dev-jwt-secret-change-in-production-min-32-chars'),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

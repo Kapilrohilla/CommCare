@@ -12,6 +12,7 @@ import { BullMQModule } from './infra/bullmq/bullmq.module';
 import { KafkaModule } from './infra/kafka/kafka.module';
 import { QueueModule } from './infra/queue/queue.module';
 import { SubscriberModule } from './infra/queue/subscriber.module';
+import { IamModule } from './modules/iam/iam.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { SubscriberModule } from './infra/queue/subscriber.module';
     TenancyModule,
     StorageModule,
     CallsModule,
+    IamModule,
   ],
 })
 export class AppModule {}

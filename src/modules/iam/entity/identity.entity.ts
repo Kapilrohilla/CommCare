@@ -1,29 +1,36 @@
-import { Column, CreateDateColumn, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import { IdentifierType } from "../constants/identity.constant";
-import { UserEntity } from "./user.entity";
+import {
+	Column,
+	CreateDateColumn,
+	Entity,
+	JoinColumn,
+	ManyToOne,
+	PrimaryGeneratedColumn,
+	Unique,
+	UpdateDateColumn,
+} from 'typeorm';
+import { IdentifierType } from '../constants/identity.constant';
+import { UserEntity } from './user.entity';
 
+@Entity('identities')
+@Unique('uix_identity_identifier', ['identifierType', 'identifier'])
 export class IdentityEntity {
 	@PrimaryGeneratedColumn('uuid')
 	id!: string;
 
-	@Column({ type: 'uuid', nullable: true})
-	userId!: string;
+	@Column({ type: 'uuid', nullable: true })
+	userId!: string | null;
 
-	@Column({type: 'enum', enum: IdentifierType, nullable: false})
+	@Column({ type: 'enum', enum: IdentifierType, nullable: false })
 	identifierType!: IdentifierType;
 
-	@Column({ type: 'varchar', length: 255 , nullable: false})
-	identifier!: string ;
+	@Column({ type: 'varchar', length: 255, nullable: false })
+	identifier!: string;
 
-	@Column({ type: 'varchar', length: 255, nullable: true, default: null})
+	@Column({ type: 'varchar', length: 255, nullable: true, default: null })
 	secretHash!: string | null;
 
 	@Column({ type: 'timestamptz', nullable: true, default: null })
 	identityVerifiedAt!: Date | null;
-
-	// TODO: Introduce IdentityStatus enum later
-	// @Column({type: 'enum', enum: IdentityStatus, default: IdentityStatus.PENDING})
-	// identityStatus!: IdentityStatus;
 
 	@Column({ type: 'timestamptz', nullable: true, default: null })
 	lastLoginAt!: Date | null;
@@ -34,13 +41,13 @@ export class IdentityEntity {
 	@Column({ type: 'int', nullable: false, default: 0 })
 	consecutiveFailedCount!: number;
 
-	@ManyToOne(() => UserEntity, (user) => user.id)
+	@ManyToOne(() => UserEntity, { nullable: true })
 	@JoinColumn({ name: 'user_id' })
-	user!: UserEntity;
+	user!: UserEntity | null;
 
-	@CreateDateColumn()
+	@CreateDateColumn({ type: 'timestamptz' })
 	createdAt!: Date;
 
-	@UpdateDateColumn()
+	@UpdateDateColumn({ type: 'timestamptz' })
 	updatedAt!: Date;
 }

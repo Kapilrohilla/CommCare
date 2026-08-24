@@ -1,23 +1,20 @@
-import { Injectable } from "@nestjs/common";
-import { TenancyRepository } from "../repositories/tenancy.repository";
+import { Injectable } from '@nestjs/common';
+import { Tenants } from '../entity/tenants.entity';
+import { TenancyRepository } from '../repositories/tenancy.repository';
 
 @Injectable()
 export class TenancyService {
 	constructor(private readonly tenancyRepository: TenancyRepository) {}
 
-	// async createTenancy(createTenancyDto: CreateTenancyDto) {
-	// 	return this.tenancyRepository.createTenancy(createTenancyDto);
-	// }
+	findAll(): Promise<Tenants[]> {
+		return this.tenancyRepository.findAll();
+	}
 
-	// async getTenancies() {
-	// 	return this.tenancyRepository.getTenancies();
-	// }
+	findById(id: string): Promise<Tenants | null> {
+		return this.tenancyRepository.findById(id);
+	}
 
-	// async updateTenancy(id: string, updateTenancyDto: UpdateTenancyDto) {
-	// 	return this.tenancyRepository.updateTenancy(id, updateTenancyDto);
-	// }
-
-	// async deleteTenancy(id: string) {
-	// 	return this.tenancyRepository.deleteTenancy(id);
-	// }
+	create(name: string): Promise<Tenants> {
+		return this.tenancyRepository.create(name);
+	}
 }

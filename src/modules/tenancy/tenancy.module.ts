@@ -9,5 +9,6 @@ import { Tenants } from "./entity/tenants.entity";
 	imports: [DatabaseModule.forFeature([Tenants])],
 	controllers: [TenancyController],
 	providers: [TenancyService, TenancyRepository],
+	exports: [TenancyService],
 })
 export class TenancyModule {}

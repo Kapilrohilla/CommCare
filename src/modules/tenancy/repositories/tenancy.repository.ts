@@ -24,4 +24,8 @@ export class TenancyRepository {
 		const tenant = this.writerRepository.create({ name });
 		return this.writerRepository.save(tenant);
 	}
+
+	findById(id: string): Promise<Tenants | null> {
+		return this.readerRepository.findOne({ where: { id } });
+	}
 }

@@ -1,21 +1,29 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import { AuthEventSubject } from "../constants/auth-event.constant";
-import { UserEntity } from "./user.entity";
-import { IdentityEntity } from "./identity.entity";
+import {
+	Column,
+	CreateDateColumn,
+	Entity,
+	JoinColumn,
+	ManyToOne,
+	PrimaryGeneratedColumn,
+	UpdateDateColumn,
+} from 'typeorm';
+import { AuthEventSubject } from '../constants/auth-event.constant';
+import { UserEntity } from './user.entity';
+import { IdentityEntity } from './identity.entity';
 
-@Entity()
-export class AuthEventEntity{
+@Entity('auth_events')
+export class AuthEventEntity {
 	@PrimaryGeneratedColumn('uuid')
 	id!: string;
 
 	@Column({ type: 'uuid', nullable: true })
-	userId!: string;
+	userId!: string | null;
 
 	@Column({ type: 'uuid', nullable: true })
-	identityId!: string;
+	identityId!: string | null;
 
 	@Column({ type: 'uuid', nullable: true })
-	tenantId!: string;
+	tenantId!: string | null;
 
 	@Column({ type: 'enum', enum: AuthEventSubject, nullable: false })
 	subject!: AuthEventSubject;
@@ -26,17 +34,17 @@ export class AuthEventEntity{
 	@Column({ type: 'text', nullable: true })
 	failureReason!: string | null;
 
-	@ManyToOne(() => UserEntity, (user) => user.id)
+	@ManyToOne(() => UserEntity, { nullable: true })
 	@JoinColumn({ name: 'user_id' })
-	user!: UserEntity;
+	user!: UserEntity | null;
 
-	@ManyToOne(() => IdentityEntity, (identity) => identity.id)
+	@ManyToOne(() => IdentityEntity, { nullable: true })
 	@JoinColumn({ name: 'identity_id' })
-	identity!: IdentityEntity;
+	identity!: IdentityEntity | null;
 
-	@CreateDateColumn()
+	@CreateDateColumn({ type: 'timestamptz' })
 	createdAt!: Date;
 
-	@UpdateDateColumn()
+	@UpdateDateColumn({ type: 'timestamptz' })
 	updatedAt!: Date;
 }

@@ -1,9 +1,17 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import { UserEntity } from "./user.entity";
-import { IdentityEntity } from "./identity.entity";
-import { VisitorEntity } from "./visitor.entity";
+import {
+	Column,
+	CreateDateColumn,
+	Entity,
+	JoinColumn,
+	ManyToOne,
+	PrimaryGeneratedColumn,
+	UpdateDateColumn,
+} from 'typeorm';
+import { UserEntity } from './user.entity';
+import { IdentityEntity } from './identity.entity';
+import { VisitorEntity } from './visitor.entity';
 
-@Entity()
+@Entity('sessions')
 export class SessionEntity {
 	@PrimaryGeneratedColumn('uuid')
 	id!: string;
@@ -13,16 +21,16 @@ export class SessionEntity {
 
 	@Column({ type: 'uuid', nullable: false })
 	userId!: string;
-	
+
 	@Column({ type: 'uuid', nullable: false })
 	identityId!: string;
 
-	@Column({ type: 'uuid', nullable: false })
-	tenantId!: string;
+	@Column({ type: 'uuid', nullable: true })
+	tenantId!: string | null;
 
 	@Column({ type: 'varchar', length: 255, nullable: true })
 	deviceName!: string | null;
-	
+
 	@Column({ type: 'varchar', length: 255, nullable: true })
 	browser!: string | null;
 
@@ -31,7 +39,7 @@ export class SessionEntity {
 
 	@Column({ type: 'varchar', length: 255, nullable: true })
 	ip!: string | null;
-	
+
 	@Column({ type: 'varchar', length: 255, nullable: true })
 	userAgent!: string | null;
 
@@ -44,21 +52,21 @@ export class SessionEntity {
 	@Column({ type: 'timestamptz', nullable: true })
 	revokedAt!: Date | null;
 
-	@ManyToOne(() => UserEntity, (user) => user.id)
+	@ManyToOne(() => UserEntity, (user) => user.sessions)
 	@JoinColumn({ name: 'user_id' })
 	user!: UserEntity;
 
-	@ManyToOne(() => IdentityEntity, (identity) => identity.id)
+	@ManyToOne(() => IdentityEntity)
 	@JoinColumn({ name: 'identity_id' })
 	identity!: IdentityEntity;
 
-	@ManyToOne(() => VisitorEntity, (visitor) => visitor.id)
+	@ManyToOne(() => VisitorEntity, (visitor) => visitor.sessions)
 	@JoinColumn({ name: 'visitor_id' })
 	visitor!: VisitorEntity;
 
-	@CreateDateColumn()
+	@CreateDateColumn({ type: 'timestamptz' })
 	createdAt!: Date;
 
-	@UpdateDateColumn()
+	@UpdateDateColumn({ type: 'timestamptz' })
 	updatedAt!: Date;
 }
