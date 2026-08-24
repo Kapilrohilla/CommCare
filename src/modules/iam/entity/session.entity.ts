@@ -1,11 +1,15 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { UserEntity } from "./user.entity";
 import { IdentityEntity } from "./identity.entity";
+import { VisitorEntity } from "./visitor.entity";
 
 @Entity()
 export class SessionEntity {
 	@PrimaryGeneratedColumn('uuid')
 	id!: string;
+
+	@Column({ type: 'uuid', nullable: false })
+	visitorId!: string;
 
 	@Column({ type: 'uuid', nullable: false })
 	userId!: string;
@@ -47,6 +51,10 @@ export class SessionEntity {
 	@ManyToOne(() => IdentityEntity, (identity) => identity.id)
 	@JoinColumn({ name: 'identity_id' })
 	identity!: IdentityEntity;
+
+	@ManyToOne(() => VisitorEntity, (visitor) => visitor.id)
+	@JoinColumn({ name: 'visitor_id' })
+	visitor!: VisitorEntity;
 
 	@CreateDateColumn()
 	createdAt!: Date;
