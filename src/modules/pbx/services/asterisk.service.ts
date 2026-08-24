@@ -49,4 +49,8 @@ export class AsteriskService {
 	async bridge(){
 		// code to bridge a call
 	}
+
+	async createExtension(): Promise<void>{
+		// code to create an extension
+	}
 }
