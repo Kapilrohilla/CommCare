@@ -1,9 +1,12 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
+import { RequestClient } from "../../../shared/utils/services/request.service";
 
 @Injectable()
 export class AsteriskService {
 	private ami;
 	private ari;
+
+	constructor(private readonly requestClient: RequestClient, private readonly logger: Logger){}
 
 	async onModuleInit() {
 		await this.connectAMI();
@@ -52,5 +55,24 @@ export class AsteriskService {
 
 	async createExtension(): Promise<void>{
 		// code to create an extension
+	}
+
+	private getToken(username: string, password: string): string{
+		return `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
+	}
+
+	async healthCheckAsterisk(host: string,username: string, password: string): Promise<unknown>{
+		const url = `http://${host}/asterisk/ping`;
+		const token = this.getToken(username, password);
+		this.logger.log(`Host: ${host} Username: ${username} Password: ${password}`)
+		this.logger.log(`Health Check Asterisk: ${url} with token: ${token}`)
+		return await this.requestClient.hitRequest({
+			method: 'GET',
+			url,
+			headers: {
+				'Content-Type': 'application/json',
+				'Authorization': this.getToken(username, password)
+			}
+		})
 	}
 }
