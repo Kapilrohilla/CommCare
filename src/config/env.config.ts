@@ -65,6 +65,10 @@ export const envSchema = z.object({
 	BULLMQ_UI_ENABLED: envBoolean(false),
 	BULLMQ_UI_PATH: z.string().min(1).default('/infra/bullmq/queues'),
 	JWT_SECRET: z.string().min(32).default('dev-jwt-secret-change-in-production-min-32-chars'),
+	// Asterisk
+	ARI_HOST: z.string().min(1),
+	ARI_USER: z.string().min(1),
+	ARI_PASSWORD: z.string().min(1),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

@@ -15,10 +15,10 @@ export class Extension {
 	@Column({type: 'varchar', nullable: true})
 	description!: string | null;
 
-	@Column({type: 'enum', nullable: false})
+	@Column({type: 'enum', nullable: false, enum: ExtensionType})
 	type!: ExtensionType;
 
-	@Column({type: 'enum', nullable: false})
+	@Column({type: 'enum', nullable: false, enum: ExtensionStatus})
 	status!: ExtensionStatus;
 
 	// Asterisk fields
@@ -28,7 +28,7 @@ export class Extension {
 	@Column({type: 'int', nullable: false})
 	asteriskPort!: number;
 
-	@Column({type: 'enum', nullable: false})
+	@Column({type: 'enum', nullable: false, enum: ExtensionTransport})
 	asteriskTransport!: ExtensionTransport;
 
 	// PJSIP fields

@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
+import { RequestClient } from 'src/shared/utils/services/request.service';
 import { PbxService } from './services/pbx.service';
 import { AsteriskService } from './services/asterisk.service';
 import { PbxController } from './controller/pbx.controller';
@@ -10,7 +11,7 @@ import { QueueModule } from 'src/infra/queue/queue.module';
 @Module({
 	imports: [CallsModule, QueueModule],
 	controllers: [PbxController, AsteriskController],
-	providers: [PbxService, AsteriskService, AsteriskCDRService],
+	providers: [RequestClient, PbxService, AsteriskService, AsteriskCDRService, RequestClient, Logger],
 	exports: [AsteriskCDRService],
 })
 export class PbxModule {}
