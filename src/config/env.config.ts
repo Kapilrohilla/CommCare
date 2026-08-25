@@ -69,6 +69,13 @@ export const envSchema = z.object({
 	ARI_HOST: z.string().min(1),
 	ARI_USER: z.string().min(1),
 	ARI_PASSWORD: z.string().min(1),
+
+	// FreePbx
+	FREEPBX_BASE_URL: z.string().url().min(1),
+	FREEPBX_GRAPHQL_URL: z.string().url().min(1),
+	FREEPBX_TOKEN_URL: z.string().url().min(1),
+	FREEPBX_CLIENT_ID: z.string().min(1),
+	FREEPBX_CLIENT_SECRET: z.string().min(1),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

@@ -21,6 +21,19 @@ export interface RequestClientOptions extends OptionsInit {
 	data?: unknown;
 }
 
+export interface GraphqlClientOptions extends Omit<RequestClientOptions, 'data' | 'bodyOverRide' | 'jsonOverRide'> {
+	query: string;
+	variables?: Record<string, unknown>;
+	operationName?: string;
+}
+
+interface GraphqlResponseBody<T> {
+	data?: T;
+	errors?: Array<{
+		message: string;
+	}>;
+}
+
 @Injectable()
 export class RequestClient {
 	private readonly logger = new Logger(RequestClient.name);
@@ -179,5 +192,44 @@ export class RequestClient {
 			this.logger.error(`${requestId} External Request Failed for url ${url} method ${gotConfig.method ?? 'GET'} status Code N/A message `, gotError);
 			throw gotError;
 		}
+	}
+
+	async graphql<T = unknown>(options: GraphqlClientOptions): Promise<T> {
+		const { query, variables, operationName, method, headers, ...requestOptions } = options;
+		const url = options.url ?? options.prefixUrl;
+		if (!url) {
+			throw new CustomError(400, 'BAD_REQUEST', 'URL is required');
+		}
+
+		const payload: Record<string, unknown> = { query };
+		if (variables !== undefined) {
+			payload.variables = variables;
+		}
+		if (operationName !== undefined) {
+			payload.operationName = operationName;
+		}
+
+		const response = await this.hitRequest<GraphqlResponseBody<T>>({
+			...requestOptions,
+			url,
+			method: method ?? 'POST',
+			data: payload,
+			jsonOverRide: true,
+			headers: {
+				'Content-Type': 'application/json',
+				...headers,
+			},
+		});
+
+		if (response.errors?.length) {
+			const message = response.errors.map((error) => error.message).join('; ');
+			throw new CustomError(502, 'GRAPHQL_ERROR', message);
+		}
+
+		if (response.data === undefined) {
+			throw new CustomError(502, 'GRAPHQL_ERROR', 'GraphQL response missing data');
+		}
+
+		return response.data;
 	}
 }

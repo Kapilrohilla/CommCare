@@ -12,11 +12,13 @@ export class RedlockService {
 		ttlSeconds: number,
 		lockValue = randomUUID(),
 	): Promise<string | null> {
+		cacheName = "LOCK:" + cacheName;
 		const acquired = await this.redisService.setKeyNX(cacheName, key, lockValue, ttlSeconds);
 		return acquired ? lockValue : null;
 	}
 
 	async releaseLock(cacheName: string, key: string, lockValue: string): Promise<boolean> {
+		cacheName = 'LOCK:' + cacheName;
 		const current = await this.redisService.getKey(cacheName, key);
 		if (current !== lockValue) {
 			return false;

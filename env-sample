@@ -62,3 +62,15 @@ JWT_SECRET=dev-jwt-secret-change-in-production-min-32-chars
 WEBHOOK_URL=http://localhost:3000/pbx/asterisk/cdr/webhook
 WEBHOOK_TIMEOUT=10000
 WEBHOOK_RETRIES=3
+
+# Asterisk ARI
+ARI_HOST=asterisk ari host (with port if have)
+ARI_USER=asterisk ari username
+ARI_PASSWORD=asterisk ari password
+
+# FreePbx
+FREEPBX_BASE_URL=freepbx base url
+FREEPBX_GRAPHQL_URL=freepbx graphql url
+FREEPBX_TOKEN_URL=freepbx token url
+FREEPBX_CLIENT_ID=freepbx client id
+FREEPBX_CLIENT_SECRET=freepbx client secret

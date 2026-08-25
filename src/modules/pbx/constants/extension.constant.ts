@@ -23,3 +23,5 @@ export enum ExtensionTransport {
 	WS = 'ws',
 	WSS = 'wss',
 }
+
+export const BASE_EXTENSION_ID = 3000;
