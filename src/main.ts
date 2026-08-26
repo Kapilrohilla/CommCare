@@ -5,6 +5,7 @@ import { env } from './config/env.config';
 import { ConsoleLogger, Logger } from '@nestjs/common';
 import { setupBullMQUI } from './infra/bullmq/bullUI';
 import { BullMQProducerService } from './infra/bullmq/services/bullmq-producer.service';
+import { HttpExceptionFilter } from './shared/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -16,6 +17,8 @@ async function bootstrap() {
       colors: true
     })
   });
+
+  app.useGlobalFilters(new HttpExceptionFilter());
 
   const logger = new Logger('Bootstrap');
   const producerService = app.get(BullMQProducerService, { strict: false });

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { JwtService } from 'src/shared/utils/services/jwt.service';
-import { CreateVisitorDto } from '../dto/auth.dto';
+import { CreateVisitorInput } from '../dto/auth.dto';
 import { VisitorRepository } from '../repositories/visitor.repository';
 import { VisitorEntity } from '../entity/visitor.entity';
 
@@ -11,7 +11,7 @@ export class VisitorService {
 		private readonly jwtService: JwtService,
 	) {}
 
-	async createOrUpdateVisitor(dto: CreateVisitorDto): Promise<{ visitor: VisitorEntity; visitorToken: string }> {
+	async createOrUpdateVisitor(dto: CreateVisitorInput): Promise<{ visitor: VisitorEntity; visitorToken: string }> {
 		const visitor = await this.visitorRepository.upsert({
 			identifier: dto.identifier,
 			identifierType: dto.identifierType,

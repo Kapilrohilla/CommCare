@@ -14,7 +14,7 @@ import type { AuthContext } from 'src/shared/types/auth.types';
 import {
 	CreateTenantDto,
 	CreateUserDto,
-	CreateVisitorDto,
+	CreateVisitorInput,
 	SendOtpDto,
 	VerifyOtpDto,
 } from '../dto/auth.dto';
@@ -37,7 +37,7 @@ export class AuthService {
 		private readonly tenancyService: TenancyService,
 	) {}
 
-	async createVisitor(dto: CreateVisitorDto) {
+	async createVisitor(dto: CreateVisitorInput) {
 		const { visitor, visitorToken } = await this.visitorService.createOrUpdateVisitor(dto);
 		return {
 			visitorId: visitor.id,

@@ -1,9 +1,11 @@
-import { Body, Controller, Get, Post, UsePipes } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UsePipes } from '@nestjs/common';
+import type { Request } from 'express';
 import { TOKEN_TYPE } from 'src/constants/tokenConstants';
 import { CurrentAuth, CurrentVisitor } from 'src/shared/decorators/current-auth.decorator';
 import { JwtAuthGuard } from 'src/shared/guards/jwt-auth.guard';
 import { ZodValidationPipe } from 'src/shared/pipes/zodValidationPipe';
 import { ResponseService } from 'src/shared/utils/services/response.service';
+import { extractVisitorRequestContext } from 'src/shared/utils/extract-visitor-request-context.util';
 import type { AuthContext } from 'src/shared/types/auth.types';
 import {
 	CreateTenantDto,
@@ -20,8 +22,9 @@ export class AuthController {
 
 	@Post('visitor')
 	@UsePipes(new ZodValidationPipe(CreateVisitorDto))
-	async createVisitor(@Body() body: CreateVisitorDto) {
-		const data = await this.authService.createVisitor(body);
+	async createVisitor(@Body() body: CreateVisitorDto, @Req() req: Request) {
+		const { userAgent, metadata } = extractVisitorRequestContext(req.headers);
+		const data = await this.authService.createVisitor({ ...body, userAgent, metadata });
 		return ResponseService.success('Visitor created', data);
 	}
 

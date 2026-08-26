@@ -10,7 +10,7 @@ export class RateLimitError extends HttpException {
 	readonly retryAfterMs: number;
 
 	constructor(message: string, retryAfterMs: number) {
-		super({ message, retryAfterMs }, HttpStatus.TOO_MANY_REQUESTS);
+		super({ code: 'RATE_LIMITED', message, retryAfterMs }, HttpStatus.TOO_MANY_REQUESTS);
 		this.retryAfterMs = retryAfterMs;
 	}
 }

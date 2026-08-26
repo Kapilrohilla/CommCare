@@ -31,6 +31,9 @@ export class VisitorEntity {
 	@Column({ type: 'enum', enum: VisitorAppType, nullable: false })
 	appType!: VisitorAppType;
 
+	@Column({ type: 'varchar', length: 255, nullable: true })
+	appVersion!: string | null;
+
 	@Column({ type: 'text', nullable: true })
 	userAgent!: string | null;
 
