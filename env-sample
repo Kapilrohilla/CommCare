@@ -29,14 +29,14 @@ LOG_LEVEL=info
 TRACING_ENABLED=true
 OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 
-# Redis (docker/docker-compose.infra.yaml → localhost; full stack → redis)
+# Redis (infra compose → localhost; app in Docker → redis)
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_DB=0
 REDIS_TLS=false
 
-# Kafka (docker/docker-compose.infra.yaml → localhost:9092; full stack → kafka:9092)
-KAFKA_BROKERS=localhost:9092
+# Kafka (infra compose host access → localhost:9094; app in Docker → kafka:9092)
+KAFKA_BROKERS=localhost:9094
 KAFKA_CLIENT_ID=commcare
 KAFKA_GROUP_ID=commcare-group
 KAFKA_SUBSCRIBER=NONE

@@ -1,12 +1,16 @@
-# Infrastructure only: PostgreSQL, Redis, Kafka
-# Use when running the app locally (pnpm run start:dev)
+# Long-lived infrastructure: PostgreSQL, Redis, Kafka, and observability stack.
 #
+# Start once (or only when infra config changes — not on every app deploy):
 #   docker compose -f docker/docker-compose.infra.yaml up -d
 #
-# Connect from host:
-#   WRITER_DB_HOST=localhost  READER_DB_HOST=localhost
+# Local dev on host (pnpm run start:dev) — use in .env:
+#   WRITER_DB_HOST=localhost   READER_DB_HOST=localhost
 #   REDIS_HOST=localhost
-#   KAFKA_BROKERS=localhost:9092
+#   KAFKA_BROKERS=localhost:9094
+#   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+#
+# App containers (docker-compose.yaml) connect via Docker network `commcare`
+# using service hostnames: db, redis, kafka, otel-collector, etc.
 
 services:
   db:
@@ -49,14 +53,17 @@ services:
     image: apache/kafka:3.9.1
     container_name: commcare-kafka
     ports:
-      - '9092:9092'
+      - '9094:9094'
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      # INTERNAL: docker services (app) via kafka:9092
+      # EXTERNAL: host dev via localhost:9094
+      KAFKA_LISTENERS: PLAINTEXT://:9092,PLAINTEXT_HOST://:9094,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9094
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -75,11 +82,138 @@ services:
       - commcare
     restart: unless-stopped
 
+  tempo:
+    image: grafana/tempo:2.7.2
+    container_name: commcare-tempo
+    ports:
+      - '3200:3200'
+    volumes:
+      - ./observability/tempo-config.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo_data:/var/tempo
+    command: ['-config.file=/etc/tempo/tempo.yaml']
+    networks:
+      - commcare
+    restart: unless-stopped
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.116.1
+    container_name: commcare-otel-collector
+    ports:
+      - '4317:4317'
+      - '4318:4318'
+    volumes:
+      - ./observability/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    command: ['--config=/etc/otelcol-contrib/config.yaml']
+    depends_on:
+      - tempo
+    networks:
+      - commcare
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: commcare-prometheus
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - commcare
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: commcare-grafana
+    ports:
+      - '3001:3000'
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    networks:
+      - commcare
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: commcare-loki
+    ports:
+      - '3100:3100'
+    volumes:
+      - ./observability/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - commcare
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:3.3.2
+    container_name: commcare-promtail
+    volumes:
+      - ./observability/promtail-config.yaml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - commcare
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: commcare-node-exporter
+    ports:
+      - '9100:9100'
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - commcare
+    restart: unless-stopped
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    container_name: commcare-postgres-exporter
+    ports:
+      - '9187:9187'
+    environment:
+      DATA_SOURCE_NAME: postgresql://postgres:postgres@db:5432/postgres?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - commcare
+    restart: unless-stopped
+
 networks:
   commcare:
+    name: commcare
     driver: bridge
 
 volumes:
   db_data:
   redis_data:
   kafka_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  tempo_data:

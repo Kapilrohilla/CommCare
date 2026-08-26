@@ -116,29 +116,33 @@ Key variables:
 
 Environment is validated at startup via `src/config/env.config.ts`. The app exits with clear errors if required values are missing.
 
-### Docker — infrastructure only (local dev)
+### Docker — infrastructure (start once)
 
-Run PostgreSQL, Redis, and Kafka while developing on the host:
+Long-lived services: PostgreSQL, Redis, Kafka, Prometheus, Grafana, Loki, Tempo, etc.
+Do **not** restart this on every app deploy.
 
 ```bash
 docker compose -f docker/docker-compose.infra.yaml up -d
 ```
 
-Use these in your `.env`:
+Use these in `.env` when running the app on the **host** (`pnpm run start:dev`):
 
 | Variable | Value |
 |----------|-------|
 | `WRITER_DB_HOST` / `READER_DB_HOST` | `localhost` |
 | `REDIS_HOST` | `localhost` |
-| `KAFKA_BROKERS` | `localhost:9092` |
+| `KAFKA_BROKERS` | `localhost:9094` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` |
 
-### Docker (full stack)
+### Docker — application (deploy / restart)
 
-Run CommCare with PostgreSQL, Redis, Kafka, and the observability stack:
+Rebuild and restart **only** the CommCare API and workers. Requires infra already running.
 
 ```bash
 docker compose -f docker/docker-compose.yaml up -d --build
 ```
+
+Or use `./scripts/run.sh` for a clean rebuild.
 
 | Service | URL |
 |---------|-----|
@@ -148,7 +152,7 @@ docker compose -f docker/docker-compose.yaml up -d --build
 | Grafana | http://localhost:3001 (admin / admin) |
 | Loki | http://localhost:3100 |
 | Redis | localhost:6379 |
-| Kafka | localhost:9092 |
+| Kafka (host) | localhost:9094 |
 
 **Grafana dashboards to import:** Node Exporter Full (`1860`), PostgreSQL Database (`9628`).
 
