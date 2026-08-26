@@ -154,33 +154,23 @@ export class ExtensionService {
 	}
 
 	async assignOneAvailableToTenant(tenantId: string): Promise<Extension> {
-		const extension = await this.extensionRepository.findOneAvailableForAssignment();
-		if (!extension) {
+		const extensions = await this.extensionRepository.reserveAvailableForTenant(tenantId, 1);
+		if (extensions.length === 0) {
 			throw new BadRequestException('No available extensions in pool');
 		}
 
-		extension.tenantId = tenantId;
-		extension.status = ExtensionStatus.RESERVED;
-		return this.extensionRepository.updateExtension(extension);
+		return extensions[0];
 	}
 
 	async assignAvailableToTenant(tenantId: string, count: number): Promise<Extension[]> {
-		const extensions = await this.extensionRepository.findAvailableForAssignment(count);
+		const extensions = await this.extensionRepository.reserveAvailableForTenant(tenantId, count);
 		if (extensions.length < count) {
 			throw new BadRequestException(
 				`Not enough available extensions. Requested ${count}, found ${extensions.length}`,
 			);
 		}
 
-		for (const extension of extensions) {
-			extension.tenantId = tenantId;
-			extension.status = ExtensionStatus.RESERVED;
-		}
-
-		const saved = await Promise.all(
-			extensions.map((ext) => this.extensionRepository.updateExtension(ext)),
-		);
-		return saved;
+		return extensions;
 	}
 
 	async assignExtensionsToUser(
@@ -189,28 +179,17 @@ export class ExtensionService {
 		extensionIds: string[],
 		userInfo: UserInfo,
 	): Promise<Extension[]> {
-		const extensions = await this.extensionRepository.findByIdsForTenant(tenantId, extensionIds);
-		if (extensions.length !== extensionIds.length) {
-			throw new NotFoundException('One or more extensions not found for this tenant');
-		}
+		const extensions = await this.extensionRepository.assignReservedExtensionsToUser(
+			tenantId,
+			userId,
+			extensionIds,
+			userInfo,
+		);
 
 		for (const extension of extensions) {
-			if (extension.status !== ExtensionStatus.RESERVED) {
-				throw new BadRequestException(`Extension ${extension.extension} is not available for assignment`);
-			}
-			if (extension.userId) {
-				throw new BadRequestException(`Extension ${extension.extension} is already assigned to a user`);
-			}
-
-			extension.userId = userId;
-			extension.userInfo = { name: userInfo.name, userId };
-			extension.status = ExtensionStatus.ASSIGNED;
-			extension.callerIdName = userInfo.name;
-
 			await this.freePbxService.updateExtension(extension.extension, {
 				name: userInfo.name,
 			});
-			await this.extensionRepository.updateExtension(extension);
 		}
 
 		return extensions;
