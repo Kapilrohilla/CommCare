@@ -17,7 +17,7 @@ import { Tenants } from './entity/tenants.entity';
 		PbxModule,
 		forwardRef(() => IamModule),
 	],
-	controllers: [TenancyController, TenancyExtensionController],
+	controllers: [TenancyExtensionController,TenancyController ],
 	providers: [TenancyService, TenancyExtensionService, TenancyRepository],
 	exports: [TenancyService, TenancyExtensionService],
 })
