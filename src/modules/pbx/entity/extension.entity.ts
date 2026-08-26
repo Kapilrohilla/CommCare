@@ -1,13 +1,23 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { ExtensionStatus, ExtensionTransport, ExtensionType } from "../constants/extension.constant";
 
+export interface UserInfo {
+	name: string;
+}
+
 @Entity()
 export class Extension {
 	@PrimaryGeneratedColumn('uuid')
 	id!: string;
 
-	@Column({type: 'uuid', nullable: false})
-	tenantId!: string;
+	@Column({ type: 'uuid', nullable: true })
+	tenantId!: string | null;
+
+	@Column({ type: 'uuid', nullable: true })
+	userId!: string | null;
+
+	@Column({ type: 'json', nullable: true })
+	userInfo: UserInfo | null = null;
 
 	@Column({type: 'varchar', nullable: false})
 	extension!: string;

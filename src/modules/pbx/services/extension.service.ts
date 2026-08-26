@@ -1,4 +1,10 @@
-import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import {
+	BadRequestException,
+	Injectable,
+	InternalServerErrorException,
+	Logger,
+	NotFoundException,
+} from '@nestjs/common';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Events } from 'src/constants/event.constant';
 import { env } from 'src/config/env.config';
@@ -7,16 +13,14 @@ import { RedisService } from 'src/infra/redis/services/redis.service';
 import { RedlockService } from 'src/infra/redis/services/redlock.service';
 import {
 	DEFAULT_ASTERISK_PORT,
+	EXTENSION_REPLENISH_BATCH_SIZE,
 	ExtensionStatus,
 	ExtensionTransport,
 	ExtensionType,
+	MIN_AVAILABLE_EXTENSION_THRESHOLD,
 } from '../constants/extension.constant';
-import {
-	BulkCreateExtensionDto,
-	CreateExtensionInput,
-	ExtensionCreateEventPayload,
-} from '../dto/extension.dto';
-import { Extension } from '../entity/extension.entity';
+import { CreateExtensionInput, ExtensionCreateEventPayload } from '../dto/extension.dto';
+import { Extension, UserInfo } from '../entity/extension.entity';
 import { ExtensionRepository } from '../repositories/extension.repository';
 import { FreePbxService } from './freepbx.service';
 
@@ -40,7 +44,9 @@ export class ExtensionService {
 
 	private buildExtensionEntity(input: CreateExtensionInput, extensionNumber: string): Extension {
 		const extension = new Extension();
-		extension.tenantId = input.tenantId;
+		extension.tenantId = input.tenantId ?? null;
+		extension.userId = null;
+		extension.userInfo = null;
 		extension.extension = extensionNumber;
 		extension.description = input.description ?? null;
 		extension.type = input.type ?? ExtensionType.USER;
@@ -59,11 +65,9 @@ export class ExtensionService {
 	private async getNextExtensionId(): Promise<number> {
 		const cachedTopId = await this.redisService.getKey<string>(this.redisCacheNamespace, this.topExtensionRedisKey);
 		if (cachedTopId !== null) {
-			this.logger.log(`Cache hit for ${this.redisCacheNamespace}:${this.topExtensionRedisKey}`);
 			return this.redisService.incrementKey(this.redisCacheNamespace, this.topExtensionRedisKey);
 		}
 
-		this.logger.log(`Acquiring lock for ${this.redisCacheNamespace}:${this.topExtensionRedisKey}`);
 		const lock = await this.redlockService.acquireLock(this.redisCacheNamespace, this.topExtensionRedisKey, 60);
 		if (!lock) {
 			throw new InternalServerErrorException('Failed to acquire lock for extension id allocation');
@@ -91,10 +95,13 @@ export class ExtensionService {
 		}
 	}
 
-	async createExtension(input: CreateExtensionInput): Promise<Extension> {
+	async createPoolExtension(input: CreateExtensionInput = {}): Promise<Extension> {
 		const newExtensionId = await this.getNextExtensionId();
 		const extensionNumber = newExtensionId.toString();
-		const extension = this.buildExtensionEntity(input, extensionNumber);
+		const extension = this.buildExtensionEntity(
+			{ ...input, tenantId: null, status: ExtensionStatus.AVAILABLE },
+			extensionNumber,
+		);
 
 		await this.freePbxService.createExtension({
 			extension: extensionNumber,
@@ -105,25 +112,26 @@ export class ExtensionService {
 		return this.extensionRepository.createExtension(extension);
 	}
 
-	async queueBulkExtensionCreate(
-		dto: BulkCreateExtensionDto,
-		tenantId: string,
-	): Promise<{ batchId: string; count: number }> {
-		const batchId = randomUUID();
+	async countAvailableExtensions(): Promise<number> {
+		return this.extensionRepository.countAvailable();
+	}
 
-		for (let index = 0; index < dto.count; index++) {
-			await this.eventProducer.publish(Events.extensionCreate, {
-				batchId,
-				index,
-				tenantId,
-				description: dto.description,
-				callerIdName: dto.callerIdName,
-				type: dto.type,
-				status: dto.status,
-			});
+	async ensureAvailableExtensionPool(): Promise<{ batchId: string; count: number } | null> {
+		const available = await this.countAvailableExtensions();
+		if (available >= MIN_AVAILABLE_EXTENSION_THRESHOLD) {
+			return null;
 		}
 
-		return { batchId, count: dto.count };
+		const deficit = MIN_AVAILABLE_EXTENSION_THRESHOLD - available;
+		const count = Math.max(deficit, EXTENSION_REPLENISH_BATCH_SIZE);
+		const batchId = randomUUID();
+
+		for (let index = 0; index < count; index++) {
+			await this.eventProducer.publish(Events.extensionCreate, { batchId, index });
+		}
+
+		this.logger.log(`Enqueued ${count} pool extension create events (available: ${available})`);
+		return { batchId, count };
 	}
 
 	async handleEventExtensionCreate(
@@ -134,24 +142,137 @@ export class ExtensionService {
 		const data = payload as ExtensionCreateEventPayload;
 
 		this.logger.log(
-			`Handling ${eventName} for batch ${data.batchId} index ${data.index} (retry ${retryCount})`,
+			`Handling ${eventName} batch ${data.batchId} index ${data.index} (retry ${retryCount})`,
 		);
 
-		await this.createExtension({
-			tenantId: data.tenantId,
+		await this.createPoolExtension({
 			description: data.description,
 			callerIdName: data.callerIdName,
 			type: data.type,
-			status: data.status,
 		});
+	}
+
+	async assignOneAvailableToTenant(tenantId: string): Promise<Extension> {
+		const extension = await this.extensionRepository.findOneAvailableForAssignment();
+		if (!extension) {
+			throw new BadRequestException('No available extensions in pool');
+		}
+
+		extension.tenantId = tenantId;
+		extension.status = ExtensionStatus.RESERVED;
+		return this.extensionRepository.updateExtension(extension);
+	}
+
+	async assignAvailableToTenant(tenantId: string, count: number): Promise<Extension[]> {
+		const extensions = await this.extensionRepository.findAvailableForAssignment(count);
+		if (extensions.length < count) {
+			throw new BadRequestException(
+				`Not enough available extensions. Requested ${count}, found ${extensions.length}`,
+			);
+		}
+
+		for (const extension of extensions) {
+			extension.tenantId = tenantId;
+			extension.status = ExtensionStatus.RESERVED;
+		}
+
+		const saved = await Promise.all(
+			extensions.map((ext) => this.extensionRepository.updateExtension(ext)),
+		);
+		return saved;
+	}
+
+	async assignExtensionsToUser(
+		tenantId: string,
+		userId: string,
+		extensionIds: string[],
+		userInfo: UserInfo,
+	): Promise<Extension[]> {
+		const extensions = await this.extensionRepository.findByIdsForTenant(tenantId, extensionIds);
+		if (extensions.length !== extensionIds.length) {
+			throw new NotFoundException('One or more extensions not found for this tenant');
+		}
+
+		for (const extension of extensions) {
+			if (extension.status !== ExtensionStatus.RESERVED) {
+				throw new BadRequestException(`Extension ${extension.extension} is not available for assignment`);
+			}
+			if (extension.userId) {
+				throw new BadRequestException(`Extension ${extension.extension} is already assigned to a user`);
+			}
+
+			extension.userId = userId;
+			extension.userInfo = userInfo;
+			extension.status = ExtensionStatus.ASSIGNED;
+			extension.callerIdName = userInfo.name;
+
+			await this.freePbxService.updateExtension(extension.extension, {
+				name: userInfo.name,
+			});
+			await this.extensionRepository.updateExtension(extension);
+		}
+
+		return extensions;
+	}
+
+	async unassignExtensionFromUser(tenantId: string, extensionId: string, userId: string): Promise<Extension> {
+		const extension = await this.extensionRepository.getExtensionForTenant(tenantId, extensionId);
+		if (!extension) {
+			throw new NotFoundException('Extension not found');
+		}
+		if (extension.userId !== userId) {
+			throw new BadRequestException('Extension is not assigned to this user');
+		}
+
+		extension.userId = null;
+		extension.userInfo = null;
+		extension.status = ExtensionStatus.RESERVED;
+		extension.callerIdName = null;
+
+		await this.freePbxService.updateExtension(extension.extension, {
+			name: extension.extension,
+		});
+
+		return this.extensionRepository.updateExtension(extension);
+	}
+
+	async unregisterExtensionFromTenant(tenantId: string, extensionId: string): Promise<Extension> {
+		const extension = await this.extensionRepository.getExtensionForTenant(tenantId, extensionId);
+		if (!extension) {
+			throw new NotFoundException('Extension not found');
+		}
+		if (extension.userId) {
+			throw new BadRequestException('Unassign extension from user before unregistering from tenant');
+		}
+
+		extension.tenantId = null;
+		extension.status = ExtensionStatus.AVAILABLE;
+
+		const updated = await this.extensionRepository.updateExtension(extension);
+		await this.ensureAvailableExtensionPool();
+		return updated;
+	}
+
+	async syncUserInfoOnExtensions(userId: string, userInfo: UserInfo): Promise<void> {
+		const extensions = await this.extensionRepository.getExtensionsByUserId(userId);
+		for (const extension of extensions) {
+			extension.userInfo = userInfo;
+			extension.callerIdName = userInfo.name;
+			await this.freePbxService.updateExtension(extension.extension, { name: userInfo.name });
+			await this.extensionRepository.updateExtension(extension);
+		}
 	}
 
 	async getExtension(id: string): Promise<Extension | null> {
 		return this.extensionRepository.getExtension(id);
 	}
 
-	async getExtensions(): Promise<Extension[]> {
-		return this.extensionRepository.getExtensions();
+	async getExtensionsByTenantId(tenantId: string): Promise<Extension[]> {
+		return this.extensionRepository.getExtensionsByTenantId(tenantId);
+	}
+
+	async getExtensionsByUserId(userId: string): Promise<Extension[]> {
+		return this.extensionRepository.getExtensionsByUserId(userId);
 	}
 
 	async updateExtension(id: string, extension: Partial<Extension>): Promise<Extension> {
@@ -178,9 +299,5 @@ export class ExtensionService {
 
 		await this.freePbxService.deleteExtension(existing.extension);
 		await this.extensionRepository.deleteExtension(id);
-	}
-
-	async getExtensionsByTenantId(tenantId: string): Promise<Extension[]> {
-		return this.extensionRepository.getExtensionsByTenantId(tenantId);
 	}
 }

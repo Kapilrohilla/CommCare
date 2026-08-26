@@ -26,3 +26,9 @@ export enum ExtensionTransport {
 
 export const BASE_EXTENSION_ID = 3000;
 export const DEFAULT_ASTERISK_PORT = 5060;
+
+/** Minimum pool extensions kept as available (no tenant). */
+export const MIN_AVAILABLE_EXTENSION_THRESHOLD = 100;
+
+/** How many pool extensions to enqueue when below threshold. */
+export const EXTENSION_REPLENISH_BATCH_SIZE = 50;

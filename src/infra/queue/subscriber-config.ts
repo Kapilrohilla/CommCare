@@ -2,6 +2,7 @@ import { AsteriskCDRService } from 'src/modules/pbx/services/asterisk-cdr.servic
 import { ExtensionService } from 'src/modules/pbx/services/extension.service';
 import { Events } from '../../constants/event.constant';
 import { HealthCheckService } from '../../modules/healthCheck/services/healthCheck.service';
+import { TenancyExtensionService } from 'src/modules/tenancy/services/tenancy-extension.service';
 /**
  * Subscriber Configuration
  * Centralized configuration for event subscribers
@@ -82,6 +83,13 @@ export const SUBSCRIBER_CONFIGS: SubscriberConfig[] = [
     concurrency: 1,
     limiter: { max: 10, duration: 60_000 },
   },
+  {
+    eventName: Events.bulkExtensionAssignment,
+    serviceClass: TenancyExtensionService,
+    subscriberServiceName: 'tenancyExtensionService',
+    concurrency: 1,
+    limiter: { max: 10, duration: 60_000 },
+  }
 ];
 
 /**

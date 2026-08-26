@@ -23,4 +23,9 @@ export class UserService {
 		user.tenantId = tenantId;
 		return this.userRepository.save(user);
 	}
+
+	updateName(user: UserEntity, name: string): Promise<UserEntity> {
+		user.name = name;
+		return this.userRepository.save(user);
+	}
 }

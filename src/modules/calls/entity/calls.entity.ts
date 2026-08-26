@@ -26,19 +26,19 @@ export class CallEntity {
    * Original caller information.
    */
   @Column({ type: 'varchar', length: 255, nullable: true })
-  from!: string | null;
+  callerNumber!: string | null;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  fromName!: string | null;
+  @Column({ type: 'uuid', nullable: true })
+  callerUserId!: string | null;
 
   /**
    * Original destination.
    */
   @Column({ type: 'varchar', length: 255, nullable: true })
-  to!: string | null;
+  callToNumber!: string | null;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  toName!: string | null;
+  @Column({ type: 'uuid', nullable: true })
+  callToUserId!: string | null;
 
   /**
    * Technical call status.
@@ -104,19 +104,13 @@ export class CallEntity {
   dispositionNote!: string | null;
 
   /**
-   * Optional external references.
-   */
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  customerId!: string | null;
-
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  leadId!: string | null;
-
-  /**
    * Recording.
    */
   @Column({ type: 'boolean', default: false })
   recordingAvailable!: boolean;
+
+  @Column({ type: 'varchar', length: 255, nullable: true }) 
+  recordingUrl!: string | null;
 
   @CreateDateColumn()
   createdAt!: Date;

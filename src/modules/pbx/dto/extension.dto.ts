@@ -1,5 +1,5 @@
 import z from 'zod';
-import { ExtensionStatus, ExtensionType } from '../constants/extension.constant';
+import { ExtensionStatus, ExtensionType, MIN_AVAILABLE_EXTENSION_THRESHOLD } from '../constants/extension.constant';
 
 const extensionTypeValues = [ExtensionType.USER] as const;
 const extensionStatusValues = [
@@ -31,7 +31,7 @@ export const BulkCreateExtensionDto = CreateExtensionDto.extend({
 export const ExtensionCreateEventPayload = z.object({
 	batchId: z.string().uuid(),
 	index: z.number().int().nonnegative(),
-	tenantId: z.string().uuid(),
+	tenantId: z.string().uuid().optional(),
 	description: z.string().optional(),
 	callerIdName: z.string().optional(),
 	type: z.enum(extensionTypeValues).optional(),
@@ -44,5 +44,5 @@ export type BulkCreateExtensionDto = z.infer<typeof BulkCreateExtensionDto>;
 export type ExtensionCreateEventPayload = z.infer<typeof ExtensionCreateEventPayload>;
 
 export type CreateExtensionInput = CreateExtensionDto & {
-	tenantId: string;
+	tenantId?: string | null;
 };

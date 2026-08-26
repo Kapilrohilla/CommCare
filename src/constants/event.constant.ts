@@ -9,4 +9,5 @@ export const Events = {
 	healthCheckPerformed: 'healthCheckPerformed',
 	cdrEvent: 'cdrEvent',
 	extensionCreate: 'extensionCreate',
+	bulkExtensionAssignment: 'bulkExtensionAssignment',
 };
