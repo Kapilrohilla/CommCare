@@ -27,10 +27,6 @@ export const CreateUserDto = z.object({
 	name: z.string().min(1).max(255),
 });
 
-export const CreateTenantDto = z.object({
-	name: z.string().min(1).max(255),
-});
-
 export type CreateVisitorDto = z.infer<typeof CreateVisitorDto>;
 export type CreateVisitorInput = CreateVisitorDto & {
 	userAgent?: string | null;
@@ -39,4 +35,3 @@ export type CreateVisitorInput = CreateVisitorDto & {
 export type SendOtpDto = z.infer<typeof SendOtpDto>;
 export type VerifyOtpDto = z.infer<typeof VerifyOtpDto>;
 export type CreateUserDto = z.infer<typeof CreateUserDto>;
-export type CreateTenantDto = z.infer<typeof CreateTenantDto>;

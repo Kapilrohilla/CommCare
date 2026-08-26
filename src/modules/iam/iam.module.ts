@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { TOKEN_TYPE } from 'src/constants/tokenConstants';
 import { DatabaseModule } from 'src/infra/database/connectors/typeORM';
@@ -45,7 +45,7 @@ import {
 			AuthEventEntity,
 		]),
 		RedisModule,
-		TenancyModule,
+		forwardRef(() => TenancyModule),
 	],
 	controllers: [AuthController],
 	providers: [
@@ -72,6 +72,8 @@ import {
 	exports: [
 		AuthService,
 		JwtService,
+		UserService,
+		SessionService,
 		AccessTokenGuard,
 		RefreshTokenGuard,
 		VisitorTokenGuard,

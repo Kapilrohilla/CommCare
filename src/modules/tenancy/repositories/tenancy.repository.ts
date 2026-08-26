@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
 	DB_CONNECTION_READER,
@@ -27,5 +27,22 @@ export class TenancyRepository {
 
 	findById(id: string): Promise<Tenants | null> {
 		return this.readerRepository.findOne({ where: { id } });
+	}
+
+	async update(id: string, name: string): Promise<Tenants> {
+		const tenant = await this.findById(id);
+		if (!tenant) {
+			throw new NotFoundException('Tenant not found');
+		}
+		tenant.name = name;
+		return this.writerRepository.save(tenant);
+	}
+
+	async delete(id: string): Promise<void> {
+		const tenant = await this.findById(id);
+		if (!tenant) {
+			throw new NotFoundException('Tenant not found');
+		}
+		await this.writerRepository.delete(id);
 	}
 }

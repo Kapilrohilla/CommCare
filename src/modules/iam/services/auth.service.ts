@@ -12,7 +12,6 @@ import { Environment } from 'src/constants/environmentConstants';
 import { TenancyService } from 'src/modules/tenancy/services/tenancy.service';
 import type { AuthContext } from 'src/shared/types/auth.types';
 import {
-	CreateTenantDto,
 	CreateUserDto,
 	CreateVisitorInput,
 	SendOtpDto,
@@ -135,34 +134,12 @@ export class AuthService {
 		await this.authEventService.logLogin(user.id, identity.id, user.tenantId, true);
 		await this.authEventService.logSessionCreated(user.id, identity.id, user.tenantId);
 
-		const tenant = user.tenantId ? await this.tenancyService.findById(user.tenantId) : null;
+		const tenant = user.tenantId ? await this.tenancyService.findByIdOrNull(user.tenantId) : null;
 
 		return {
 			user: { id: user.id, name: user.name, tenantId: user.tenantId },
 			tenant: tenant ? { id: tenant.id, name: tenant.name } : null,
 			requiresTenant: !user.tenantId,
-			...tokens,
-		};
-	}
-
-	async setupTenant(auth: AuthContext, dto: CreateTenantDto) {
-		const user = await this.userService.findById(auth.userId);
-		if (!user) {
-			throw new UnauthorizedException('User not found');
-		}
-		if (user.tenantId) {
-			throw new ConflictException('User already has a tenant assigned');
-		}
-
-		const tenant = await this.tenancyService.create(dto.name);
-		await this.userService.assignTenant(user, tenant.id);
-		const session = await this.sessionService.assignTenant(auth.sessionId, tenant.id);
-		const tokens = await this.sessionService.generateTokens(session);
-
-		return {
-			tenant: { id: tenant.id, name: tenant.name },
-			user: { id: user.id, name: user.name, tenantId: tenant.id },
-			requiresTenant: false,
 			...tokens,
 		};
 	}
@@ -186,7 +163,7 @@ export class AuthService {
 			throw new UnauthorizedException('User not found');
 		}
 
-		const tenant = user.tenantId ? await this.tenancyService.findById(user.tenantId) : null;
+		const tenant = user.tenantId ? await this.tenancyService.findByIdOrNull(user.tenantId) : null;
 
 		return {
 			user: { id: user.id, name: user.name, tenantId: user.tenantId, status: user.status },

@@ -8,7 +8,6 @@ import { ResponseService } from 'src/shared/utils/services/response.service';
 import { extractVisitorRequestContext } from 'src/shared/utils/extract-visitor-request-context.util';
 import type { AuthContext } from 'src/shared/types/auth.types';
 import {
-	CreateTenantDto,
 	CreateUserDto,
 	CreateVisitorDto,
 	SendOtpDto,
@@ -52,16 +51,6 @@ export class AuthController {
 	) {
 		const data = await this.authService.verifyOtp(body, visitor.visitorId);
 		return ResponseService.success('OTP verified', data);
-	}
-
-	@Post('tenant')
-	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
-	async setupTenant(
-		@CurrentAuth() auth: AuthContext,
-		@Body(new ZodValidationPipe(CreateTenantDto)) body: CreateTenantDto,
-	) {
-		const data = await this.authService.setupTenant(auth, body);
-		return ResponseService.success('Tenant created', data);
 	}
 
 	@Post('refresh')
