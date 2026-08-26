@@ -39,7 +39,8 @@ export class ExtensionService {
 	) {}
 
 	private generatePjsipPassword(): string {
-		return randomBytes(16).toString('base64url');
+		// FreePBX requires alphanumeric secrets with both letters and numbers.
+		return randomBytes(12).toString('hex');
 	}
 
 	private buildExtensionEntity(input: CreateExtensionInput, extensionNumber: string): Extension {

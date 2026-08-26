@@ -22,6 +22,13 @@ interface FreePbxMutationResponse {
 	transaction_id?: string | null;
 }
 
+interface ExtensionMutationInputOptions {
+	extension: string;
+	name?: string;
+	email?: string;
+	secret?: string;
+}
+
 @Injectable()
 export class FreePbxService {
 	private readonly redisCacheNamespace = 'freePbx';
@@ -82,8 +89,26 @@ export class FreePbxService {
 	private assertMutationSuccess(response: FreePbxMutationResponse, operation: string): void {
 		const succeeded = response.status === true || response.status === 'true';
 		if (!succeeded) {
-			throw new InternalServerErrorException(response.message || `FreePBX ${operation} failed`);
+			const message = response.message || `FreePBX ${operation} failed`;
+			this.logger.error(`[FreePbxService] ${operation} failed: ${message}`);
+			throw new InternalServerErrorException(message);
 		}
+	}
+
+	private buildExtensionMutationInput(options: ExtensionMutationInputOptions): Record<string, unknown> {
+		const { extension, name, email, secret } = options;
+		const extensionName = name ?? extension;
+
+		return {
+			extensionId: extension,
+			tech: 'pjsip',
+			name: extensionName,
+			email: email ?? `${extension}@example.com`,
+			umEnable: false,
+			vmEnable: false,
+			maxContacts: '1',
+			...(secret !== undefined && { extPassword: secret }),
+		};
 	}
 
 	private async doReloadConfig(): Promise<FreePbxMutationResponse> {
@@ -210,7 +235,6 @@ export class FreePbxService {
 
 	async createExtension(payload: CreateFreePbxExtensionDto): Promise<unknown> {
 		const { extension, name, secret, email } = payload;
-		const extensionName = name ?? extension;
 
 		const addResponse = await this.graphqlRequest<{ addExtension: FreePbxMutationResponse }>({
 			query: `
@@ -223,15 +247,7 @@ export class FreePbxService {
 				}
 			`,
 			variables: {
-				input: {
-					extensionId: extension,
-					tech: 'pjsip',
-					name: extensionName,
-					email: email ?? `${extension}@example.com`,
-					umEnable: false,
-					vmEnable: false,
-					maxContacts: '1',
-				},
+				input: this.buildExtensionMutationInput({ extension, name, email }),
 			},
 		});
 		this.assertMutationSuccess(addResponse.addExtension, 'addExtension');
@@ -248,12 +264,7 @@ export class FreePbxService {
 					}
 				`,
 				variables: {
-					input: {
-						extensionId: extension,
-						name: extensionName,
-						tech: 'pjsip',
-						extPassword: secret,
-					},
+					input: this.buildExtensionMutationInput({ extension, name, email, secret }),
 				},
 			});
 			this.assertMutationSuccess(updateResponse.updateExtension, 'updateExtension');
@@ -309,13 +320,7 @@ export class FreePbxService {
 					}
 				`,
 				variables: {
-					input: {
-						extensionId: extension,
-						name: name ?? extension,
-						tech: 'pjsip',
-						...(email !== undefined && { email }),
-						...(secret !== undefined && { extPassword: secret }),
-					},
+					input: this.buildExtensionMutationInput({ extension, name, email, secret }),
 				},
 			}),
 			'updateExtension',
