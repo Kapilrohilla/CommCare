@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from 'src/infra/database/connectors/typeORM';
+import { ExtensionRepository } from 'src/modules/pbx/repositories/extension.repository';
+import { Extension } from 'src/modules/pbx/entity/extension.entity';
 import { CallEntity } from './entity/calls.entity';
 import { CallLegEntity } from './entity/call-legs.entity';
 import { CallEventEntity } from './entity/call-events.entity';
@@ -17,6 +19,7 @@ import { CallEventsRepository } from './repositories/call-events.repository';
 			CallEntity,
 			CallLegEntity,
 			CallEventEntity,
+			Extension,
 		]),
 	],
 	controllers: [CallsController],
@@ -24,6 +27,7 @@ import { CallEventsRepository } from './repositories/call-events.repository';
 		CallsRepository,
 		CallLegsRepository,
 		CallEventsRepository,
+		ExtensionRepository,
 		CallsService,
 		CallLegsService,
 		CallEventsService,

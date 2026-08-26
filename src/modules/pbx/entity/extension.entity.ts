@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { ExtensionStatus, ExtensionTransport, ExtensionType } from "../constants/extension.constant";
 
 export interface UserInfo {
@@ -7,6 +7,10 @@ export interface UserInfo {
 }
 
 @Entity()
+@Index('idx_extension_tenant_id', ['tenantId'])
+@Index('idx_extension_user_id', ['userId'])
+@Index('idx_extension_extension', ['extension'])
+@Index('idx_extension_status', ['status'])
 export class Extension {
 	@PrimaryGeneratedColumn('uuid')
 	id!: string;

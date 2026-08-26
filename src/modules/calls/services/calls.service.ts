@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ExtensionRepository } from 'src/modules/pbx/repositories/extension.repository';
 import { CallsRepository } from '../repositories/calls.repository';
 import { CallEntity } from '../entity/calls.entity';
 import { ProcessedCallData } from '../types/processed-call.types';
@@ -8,7 +9,12 @@ import { CallLegsService } from './call-legs.service';
 @Injectable()
 export class CallsService {
 	private readonly logger = new Logger(CallsService.name);
-	constructor(private readonly callsRepository: CallsRepository, private readonly callLegsService: CallLegsService, private readonly callEventsService: CallEventsService) {}
+	constructor(
+		private readonly callsRepository: CallsRepository,
+		private readonly callLegsService: CallLegsService,
+		private readonly callEventsService: CallEventsService,
+		private readonly extensionRepository: ExtensionRepository,
+	) {}
 
 	async getCalls(): Promise<CallEntity[]> {
 		return this.callsRepository.getCalls();
@@ -61,10 +67,16 @@ export class CallsService {
 		const call = existingCall ?? new CallEntity();
 		call.linkedId = processedCall.linkedId;
 		call.direction = processedCall.direction;
-		call.from = processedCall.from;
-		call.fromName = processedCall.fromName;
-		call.to = processedCall.to;
-		call.toName = processedCall.toName;
+		call.callerNumber = processedCall.from;
+		call.callToNumber = processedCall.to;
+
+		const [callerUserId, callToUserId] = await Promise.all([
+			this.extensionRepository.findAssignedUserIdByExtension(processedCall.from),
+			this.extensionRepository.findAssignedUserIdByExtension(processedCall.to),
+		]);
+		call.callerUserId = callerUserId;
+		call.callToUserId = callToUserId;
+
 		call.status = processedCall.status;
 		call.startedAt = processedCall.startedAt;
 		call.answeredAt = processedCall.answeredAt;

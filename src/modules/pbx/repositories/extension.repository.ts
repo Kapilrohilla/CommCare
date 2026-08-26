@@ -30,6 +30,15 @@ export class ExtensionRepository {
 		return this.readerRepository.findOne({ where: { extension: extensionNumber } });
 	}
 
+	async findAssignedUserIdByExtension(extensionNumber: string | null): Promise<string | null> {
+		if (!extensionNumber) {
+			return null;
+		}
+
+		const extension = await this.getExtensionByNumber(extensionNumber);
+		return extension?.userId ?? null;
+	}
+
 	async updateExtension(extension: Extension): Promise<Extension> {
 		return this.writerRepository.save(extension);
 	}
