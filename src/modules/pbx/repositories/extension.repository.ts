@@ -85,7 +85,7 @@ export class ExtensionRepository {
 				.createQueryBuilder('extension')
 				.setLock('pessimistic_write')
 				.where('extension.status = :status', { status: ExtensionStatus.AVAILABLE })
-				.andWhere('extension.tenant_id IS NULL')
+				.andWhere('extension.tenantId IS NULL')
 				.orderBy('CAST(extension.extension AS INTEGER)', 'ASC')
 				.limit(count)
 				.getMany();
@@ -119,7 +119,7 @@ export class ExtensionRepository {
 				.createQueryBuilder('extension')
 				.setLock('pessimistic_write')
 				.where('extension.id IN (:...ids)', { ids: extensionIds })
-				.andWhere('extension.tenant_id = :tenantId', { tenantId })
+				.andWhere('extension.tenantId = :tenantId', { tenantId })
 				.getMany();
 
 			if (extensions.length !== extensionIds.length) {
