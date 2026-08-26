@@ -53,4 +53,8 @@ export class ExtensionRepository {
 
 		return BASE_EXTENSION_ID;
 	}
+
+	async getExtensions(): Promise<Extension[]> {
+		return this.readerRepository.find();
+	}
 }

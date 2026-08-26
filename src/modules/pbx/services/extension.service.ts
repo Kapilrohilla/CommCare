@@ -1,6 +1,21 @@
 import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { Events } from 'src/constants/event.constant';
+import { env } from 'src/config/env.config';
+import { EventProducer } from 'src/infra/queue/services/event-producer.service';
 import { RedisService } from 'src/infra/redis/services/redis.service';
 import { RedlockService } from 'src/infra/redis/services/redlock.service';
+import {
+	DEFAULT_ASTERISK_PORT,
+	ExtensionStatus,
+	ExtensionTransport,
+	ExtensionType,
+} from '../constants/extension.constant';
+import {
+	BulkCreateExtensionDto,
+	CreateExtensionInput,
+	ExtensionCreateEventPayload,
+} from '../dto/extension.dto';
 import { Extension } from '../entity/extension.entity';
 import { ExtensionRepository } from '../repositories/extension.repository';
 import { FreePbxService } from './freepbx.service';
@@ -16,7 +31,30 @@ export class ExtensionService {
 		private readonly logger: Logger,
 		private readonly freePbxService: FreePbxService,
 		private readonly redlockService: RedlockService,
+		private readonly eventProducer: EventProducer,
 	) {}
+
+	private generatePjsipPassword(): string {
+		return randomBytes(16).toString('base64url');
+	}
+
+	private buildExtensionEntity(input: CreateExtensionInput, extensionNumber: string): Extension {
+		const extension = new Extension();
+		extension.tenantId = input.tenantId;
+		extension.extension = extensionNumber;
+		extension.description = input.description ?? null;
+		extension.type = input.type ?? ExtensionType.USER;
+		extension.status = input.status ?? ExtensionStatus.AVAILABLE;
+		extension.asteriskHost = env.ARI_HOST;
+		extension.asteriskPort = DEFAULT_ASTERISK_PORT;
+		extension.asteriskTransport = ExtensionTransport.UDP;
+		extension.pjsipEndpoint = extensionNumber;
+		extension.pjsipUsername = extensionNumber;
+		extension.pjsipPassword = this.generatePjsipPassword();
+		extension.callerIdName = input.callerIdName ?? null;
+		extension.callerIdNumber = null;
+		return extension;
+	}
 
 	private async getNextExtensionId(): Promise<number> {
 		const cachedTopId = await this.redisService.getKey<string>(this.redisCacheNamespace, this.topExtensionRedisKey);
@@ -53,9 +91,10 @@ export class ExtensionService {
 		}
 	}
 
-	async createExtension(extension: Extension): Promise<Extension> {
+	async createExtension(input: CreateExtensionInput): Promise<Extension> {
 		const newExtensionId = await this.getNextExtensionId();
 		const extensionNumber = newExtensionId.toString();
+		const extension = this.buildExtensionEntity(input, extensionNumber);
 
 		await this.freePbxService.createExtension({
 			extension: extensionNumber,
@@ -63,16 +102,56 @@ export class ExtensionService {
 			secret: extension.pjsipPassword,
 		});
 
-		return this.extensionRepository.createExtension({
-			...extension,
-			extension: extensionNumber,
-			pjsipUsername: extension.pjsipUsername || extensionNumber,
-			pjsipEndpoint: extension.pjsipEndpoint || extensionNumber,
+		return this.extensionRepository.createExtension(extension);
+	}
+
+	async queueBulkExtensionCreate(
+		dto: BulkCreateExtensionDto,
+		tenantId: string,
+	): Promise<{ batchId: string; count: number }> {
+		const batchId = randomUUID();
+
+		for (let index = 0; index < dto.count; index++) {
+			await this.eventProducer.publish(Events.extensionCreate, {
+				batchId,
+				index,
+				tenantId,
+				description: dto.description,
+				callerIdName: dto.callerIdName,
+				type: dto.type,
+				status: dto.status,
+			});
+		}
+
+		return { batchId, count: dto.count };
+	}
+
+	async handleEventExtensionCreate(
+		eventName: string,
+		payload: unknown,
+		retryCount: number,
+	): Promise<void> {
+		const data = payload as ExtensionCreateEventPayload;
+
+		this.logger.log(
+			`Handling ${eventName} for batch ${data.batchId} index ${data.index} (retry ${retryCount})`,
+		);
+
+		await this.createExtension({
+			tenantId: data.tenantId,
+			description: data.description,
+			callerIdName: data.callerIdName,
+			type: data.type,
+			status: data.status,
 		});
 	}
 
 	async getExtension(id: string): Promise<Extension | null> {
 		return this.extensionRepository.getExtension(id);
+	}
+
+	async getExtensions(): Promise<Extension[]> {
+		return this.extensionRepository.getExtensions();
 	}
 
 	async updateExtension(id: string, extension: Partial<Extension>): Promise<Extension> {

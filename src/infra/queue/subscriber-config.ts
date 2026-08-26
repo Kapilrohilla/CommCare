@@ -1,4 +1,5 @@
 import { AsteriskCDRService } from 'src/modules/pbx/services/asterisk-cdr.service';
+import { ExtensionService } from 'src/modules/pbx/services/extension.service';
 import { Events } from '../../constants/event.constant';
 import { HealthCheckService } from '../../modules/healthCheck/services/healthCheck.service';
 /**
@@ -73,7 +74,14 @@ export const SUBSCRIBER_CONFIGS: SubscriberConfig[] = [
     serviceClass: AsteriskCDRService,
     subscriberServiceName: 'asteriskCDRService',
     concurrency: 10,
-  }
+  },
+  {
+    eventName: Events.extensionCreate,
+    serviceClass: ExtensionService,
+    subscriberServiceName: 'extensionService',
+    concurrency: 1,
+    limiter: { max: 10, duration: 60_000 },
+  },
 ];
 
 /**

@@ -25,3 +25,4 @@ export enum ExtensionTransport {
 }
 
 export const BASE_EXTENSION_ID = 3000;
+export const DEFAULT_ASTERISK_PORT = 5060;

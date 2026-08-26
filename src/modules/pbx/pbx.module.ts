@@ -5,6 +5,7 @@ import { PbxService } from './services/pbx.service';
 import { AsteriskService } from './services/asterisk.service';
 import { PbxController } from './controller/pbx.controller';
 import { AsteriskController } from './controller/asterisk.controller';
+import { ExtensionController } from './controller/extension.controller';
 import { FreePbxController } from './controller/freepbx.controller';
 import { AsteriskCDRService } from './services/asterisk-cdr.service';
 import { FreePbxService } from './services/freepbx.service';
@@ -17,7 +18,7 @@ import { RedisModule } from 'src/infra/redis/redis.module';
 
 @Module({
 	imports: [CallsModule, QueueModule, RedisModule, DatabaseModule.forFeature([Extension])],
-	controllers: [PbxController, AsteriskController, FreePbxController],
+	controllers: [PbxController, AsteriskController, FreePbxController, ExtensionController],
 	providers: [
 		RequestClient,
 		PbxService,
