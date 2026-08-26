@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull } from 'typeorm';
 import { BaseRepository } from 'src/infra/database/connectors/baseRepository';
@@ -78,32 +78,74 @@ export class ExtensionRepository {
 		});
 	}
 
-	async findAvailableForAssignment(count: number): Promise<Extension[]> {
-		return this.writerRepository
-			.createQueryBuilder('extension')
-			.setLock('pessimistic_write')
-			.where('extension.status = :status', { status: ExtensionStatus.AVAILABLE })
-			.andWhere('extension.tenant_id IS NULL')
-			.orderBy('CAST(extension.extension AS INTEGER)', 'ASC')
-			.limit(count)
-			.getMany();
+	async reserveAvailableForTenant(tenantId: string, count: number): Promise<Extension[]> {
+		return this.writerRepository.manager.transaction(async (manager) => {
+			const extensions = await manager
+				.getRepository(Extension)
+				.createQueryBuilder('extension')
+				.setLock('pessimistic_write')
+				.where('extension.status = :status', { status: ExtensionStatus.AVAILABLE })
+				.andWhere('extension.tenant_id IS NULL')
+				.orderBy('CAST(extension.extension AS INTEGER)', 'ASC')
+				.limit(count)
+				.getMany();
+
+			if (extensions.length === 0) {
+				return [];
+			}
+
+			for (const extension of extensions) {
+				extension.tenantId = tenantId;
+				extension.status = ExtensionStatus.RESERVED;
+			}
+
+			return manager.save(Extension, extensions);
+		});
 	}
 
-	async findOneAvailableForAssignment(): Promise<Extension | null> {
-		const extensions = await this.findAvailableForAssignment(1);
-		return extensions[0] ?? null;
-	}
-
-	async findByIdsForTenant(tenantId: string, ids: string[]): Promise<Extension[]> {
-		if (ids.length === 0) {
+	async assignReservedExtensionsToUser(
+		tenantId: string,
+		userId: string,
+		extensionIds: string[],
+		userInfo: UserInfo,
+	): Promise<Extension[]> {
+		if (extensionIds.length === 0) {
 			return [];
 		}
-		return this.writerRepository
-			.createQueryBuilder('extension')
-			.setLock('pessimistic_write')
-			.where('extension.id IN (:...ids)', { ids })
-			.andWhere('extension.tenant_id = :tenantId', { tenantId })
-			.getMany();
+
+		return this.writerRepository.manager.transaction(async (manager) => {
+			const extensions = await manager
+				.getRepository(Extension)
+				.createQueryBuilder('extension')
+				.setLock('pessimistic_write')
+				.where('extension.id IN (:...ids)', { ids: extensionIds })
+				.andWhere('extension.tenant_id = :tenantId', { tenantId })
+				.getMany();
+
+			if (extensions.length !== extensionIds.length) {
+				throw new NotFoundException('One or more extensions not found for this tenant');
+			}
+
+			for (const extension of extensions) {
+				if (extension.status !== ExtensionStatus.RESERVED) {
+					throw new BadRequestException(
+						`Extension ${extension.extension} is not available for assignment`,
+					);
+				}
+				if (extension.userId) {
+					throw new BadRequestException(
+						`Extension ${extension.extension} is already assigned to a user`,
+					);
+				}
+
+				extension.userId = userId;
+				extension.userInfo = { name: userInfo.name, userId };
+				extension.status = ExtensionStatus.ASSIGNED;
+				extension.callerIdName = userInfo.name;
+			}
+
+			return manager.save(Extension, extensions);
+		});
 	}
 
 	async getExtensionForTenant(tenantId: string, id: string): Promise<Extension | null> {
