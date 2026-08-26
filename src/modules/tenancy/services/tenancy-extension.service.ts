@@ -15,7 +15,6 @@ import {
 	AssignExtensionsToUserDto,
 	BulkExtensionAssignmentEventPayload,
 	CreateTenantUserDto,
-	RegisterExtensionToTenantDto,
 	UpdateTenantUserDto,
 } from '../dto/tenancy-extension.dto';
 import { TenancyService } from './tenancy.service';
@@ -69,6 +68,7 @@ export class TenancyExtensionService {
 
 		for (let index = 0; index < data.count; index++) {
 			await this.extensionService.assignOneAvailableToTenant(data.tenantId);
+			await this.tenancyService.onExtensionsReserved(data.tenantId);
 		}
 
 		await this.extensionService.ensureAvailableExtensionPool();
@@ -89,14 +89,18 @@ export class TenancyExtensionService {
 		if (!tenantId) {
 			throw new ForbiddenException('Tenant setup required');
 		}
-		return this.extensionService.unassignExtensionFromUser(tenantId, extensionId, userId);
+		const extension = await this.extensionService.unassignExtensionFromUser(tenantId, extensionId, userId);
+		await this.tenancyService.onExtensionUnassigned(tenantId);
+		return extension;
 	}
 
 	async unregisterExtension(extensionId: string, tenantId: string | null) {
 		if (!tenantId) {
 			throw new ForbiddenException('Tenant setup required');
 		}
-		return this.extensionService.unregisterExtensionFromTenant(tenantId, extensionId);
+		const extension = await this.extensionService.unregisterExtensionFromTenant(tenantId, extensionId);
+		await this.tenancyService.onExtensionUnregistered(tenantId);
+		return extension;
 	}
 
 	async createTenantUser(auth: AuthContext, dto: CreateTenantUserDto) {
@@ -109,8 +113,9 @@ export class TenancyExtensionService {
 			auth.tenantId,
 			user.id,
 			dto.extensionIds,
-			{ name: dto.name },
+			{ name: dto.name, userId: user.id },
 		);
+		await this.tenancyService.onExtensionsAssigned(auth.tenantId, extensions.length);
 
 		return { user: { id: user.id, name: user.name, tenantId: user.tenantId }, extensions };
 	}
@@ -129,8 +134,9 @@ export class TenancyExtensionService {
 			auth.tenantId,
 			dto.userId,
 			dto.extensionIds,
-			{ name: user.name },
+			{ name: user.name, userId: user.id },
 		);
+		await this.tenancyService.onExtensionsAssigned(auth.tenantId, extensions.length);
 
 		return { user: { id: user.id, name: user.name }, extensions };
 	}
@@ -146,7 +152,10 @@ export class TenancyExtensionService {
 		}
 
 		const updatedUser = await this.userService.updateName(user, dto.name);
-		await this.extensionService.syncUserInfoOnExtensions(userId, { name: dto.name });
+		await this.extensionService.syncUserInfoOnExtensions(userId, {
+			name: dto.name,
+			userId,
+		});
 
 		return {
 			user: { id: updatedUser.id, name: updatedUser.name, tenantId: updatedUser.tenantId },

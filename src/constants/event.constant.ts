@@ -10,4 +10,5 @@ export const Events = {
 	cdrEvent: 'cdrEvent',
 	extensionCreate: 'extensionCreate',
 	bulkExtensionAssignment: 'bulkExtensionAssignment',
+	extensionPoolMaintenance: 'extensionPoolMaintenance',
 };

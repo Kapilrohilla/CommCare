@@ -83,4 +83,20 @@ export class TenancyService {
 		}
 		return tenant;
 	}
+
+	onExtensionsReserved(tenantId: string, count = 1): Promise<void> {
+		return this.tenancyRepository.adjustExtensionStats(tenantId, count, 0);
+	}
+
+	onExtensionsAssigned(tenantId: string, count = 1): Promise<void> {
+		return this.tenancyRepository.adjustExtensionStats(tenantId, -count, count);
+	}
+
+	onExtensionUnassigned(tenantId: string): Promise<void> {
+		return this.tenancyRepository.adjustExtensionStats(tenantId, 1, -1);
+	}
+
+	onExtensionUnregistered(tenantId: string): Promise<void> {
+		return this.tenancyRepository.adjustExtensionStats(tenantId, -1, 0);
+	}
 }

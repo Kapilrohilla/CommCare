@@ -39,6 +39,13 @@ export const SCHEDULER_CONFIGS: SchedulerConfig[] = [
     payload: { source: 'scheduler', type: 'periodic', timestamp: new Date().toISOString() },
     enabled: true,
   },
+  {
+    name: 'extension-pool-maintenance',
+    eventName: Events.extensionPoolMaintenance,
+    every: 300000, // 5 minutes
+    payload: { source: 'scheduler', type: 'extension-pool' },
+    enabled: true,
+  },
 ];
 
 /**

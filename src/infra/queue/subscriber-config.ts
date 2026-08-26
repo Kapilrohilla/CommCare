@@ -89,7 +89,13 @@ export const SUBSCRIBER_CONFIGS: SubscriberConfig[] = [
     subscriberServiceName: 'tenancyExtensionService',
     concurrency: 1,
     limiter: { max: 10, duration: 60_000 },
-  }
+  },
+  {
+    eventName: Events.extensionPoolMaintenance,
+    serviceClass: ExtensionService,
+    subscriberServiceName: 'extensionService',
+    concurrency: 1,
+  },
 ];
 
 /**

@@ -3,6 +3,7 @@ import { ExtensionStatus, ExtensionTransport, ExtensionType } from "../constants
 
 export interface UserInfo {
 	name: string;
+	userId: string;
 }
 
 @Entity()

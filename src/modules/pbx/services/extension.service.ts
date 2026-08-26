@@ -202,7 +202,7 @@ export class ExtensionService {
 			}
 
 			extension.userId = userId;
-			extension.userInfo = userInfo;
+			extension.userInfo = { name: userInfo.name, userId };
 			extension.status = ExtensionStatus.ASSIGNED;
 			extension.callerIdName = userInfo.name;
 
@@ -255,12 +255,22 @@ export class ExtensionService {
 
 	async syncUserInfoOnExtensions(userId: string, userInfo: UserInfo): Promise<void> {
 		const extensions = await this.extensionRepository.getExtensionsByUserId(userId);
+		const info: UserInfo = { name: userInfo.name, userId };
 		for (const extension of extensions) {
-			extension.userInfo = userInfo;
-			extension.callerIdName = userInfo.name;
-			await this.freePbxService.updateExtension(extension.extension, { name: userInfo.name });
+			extension.userInfo = info;
+			extension.callerIdName = info.name;
+			await this.freePbxService.updateExtension(extension.extension, { name: info.name });
 			await this.extensionRepository.updateExtension(extension);
 		}
+	}
+
+	async handleEventExtensionPoolMaintenance(
+		eventName: string,
+		_payload: unknown,
+		retryCount: number,
+	): Promise<void> {
+		this.logger.log(`Handling ${eventName} (retry ${retryCount})`);
+		await this.ensureAvailableExtensionPool();
 	}
 
 	async getExtension(id: string): Promise<Extension | null> {

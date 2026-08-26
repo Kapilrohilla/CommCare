@@ -45,4 +45,17 @@ export class TenancyRepository {
 		}
 		await this.writerRepository.delete(id);
 	}
+
+	async adjustExtensionStats(
+		tenantId: string,
+		reservedDelta: number,
+		assignedDelta: number,
+	): Promise<void> {
+		if (reservedDelta !== 0) {
+			await this.writerRepository.increment({ id: tenantId }, 'reservedExtensionCount', reservedDelta);
+		}
+		if (assignedDelta !== 0) {
+			await this.writerRepository.increment({ id: tenantId }, 'assignedExtensionCount', assignedDelta);
+		}
+	}
 }
