@@ -210,12 +210,37 @@ export class FreePbxService {
 
 	async createExtension(payload: CreateFreePbxExtensionDto): Promise<unknown> {
 		const { extension, name, secret, email } = payload;
+		const extensionName = name ?? extension;
 
-		return this.mutateAndApply(
-			this.graphqlRequest<{ addExtension: FreePbxMutationResponse }>({
+		const addResponse = await this.graphqlRequest<{ addExtension: FreePbxMutationResponse }>({
+			query: `
+				mutation AddExtension($input: addExtensionInput!) {
+					addExtension(input: $input) {
+						status
+						message
+						clientMutationId
+					}
+				}
+			`,
+			variables: {
+				input: {
+					extensionId: extension,
+					tech: 'pjsip',
+					name: extensionName,
+					email: email ?? `${extension}@example.com`,
+					umEnable: false,
+					vmEnable: false,
+					maxContacts: '1',
+				},
+			},
+		});
+		this.assertMutationSuccess(addResponse.addExtension, 'addExtension');
+
+		if (secret !== undefined) {
+			const updateResponse = await this.graphqlRequest<{ updateExtension: FreePbxMutationResponse }>({
 				query: `
-					mutation AddExtension($input: addExtensionInput!) {
-						addExtension(input: $input) {
+					mutation UpdateExtension($input: updateExtensionInput!) {
+						updateExtension(input: $input) {
 							status
 							message
 							clientMutationId
@@ -225,18 +250,17 @@ export class FreePbxService {
 				variables: {
 					input: {
 						extensionId: extension,
+						name: extensionName,
 						tech: 'pjsip',
-						name: name ?? extension,
-						email: email ?? `${extension}@example.com`,
-						umEnable: false,
-						vmEnable: false,
-						maxContacts: '1',
-						...(secret !== undefined && { extPassword: secret }),
+						extPassword: secret,
 					},
 				},
-			}),
-			'addExtension',
-		);
+			});
+			this.assertMutationSuccess(updateResponse.updateExtension, 'updateExtension');
+		}
+
+		await this.applyConfig();
+		return addResponse;
 	}
 
 	async createExtensionRange(payload: CreateFreePbxExtensionRangeDto): Promise<unknown> {

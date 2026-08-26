@@ -80,14 +80,14 @@ export const SUBSCRIBER_CONFIGS: SubscriberConfig[] = [
     eventName: Events.extensionCreate,
     serviceClass: ExtensionService,
     subscriberServiceName: 'extensionService',
-    concurrency: 1,
+    concurrency: 10,
     limiter: { max: 10, duration: 60_000 },
   },
   {
     eventName: Events.bulkExtensionAssignment,
     serviceClass: TenancyExtensionService,
     subscriberServiceName: 'tenancyExtensionService',
-    concurrency: 1,
+    concurrency: 10,
     limiter: { max: 10, duration: 60_000 },
   },
   {
