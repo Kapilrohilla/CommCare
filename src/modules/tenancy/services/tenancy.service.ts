@@ -68,4 +68,19 @@ export class TenancyService {
 			...tokens,
 		};
 	}
+
+	async getMyTenancy(auth: AuthContext) {
+		const user = await this.userService.findById(auth.userId);
+		if (!user) {
+			throw new UnauthorizedException('User not found');
+		}
+		if (!user.tenantId) {
+			throw new NotFoundException('User does not have a tenant assigned');
+		}
+		const tenant = await this.tenancyRepository.findById(user.tenantId);
+		if (!tenant) {
+			throw new NotFoundException('Tenant not found');
+		}
+		return tenant;
+	}
 }
