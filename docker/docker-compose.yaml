@@ -21,6 +21,8 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     container_name: commcare-app
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     ports:
       - '${HTTP_PORT:-3000}:3000'
     env_file:
