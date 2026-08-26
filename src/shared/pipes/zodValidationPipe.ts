@@ -1,11 +1,16 @@
-
 import { PipeTransform, ArgumentMetadata, BadRequestException } from '@nestjs/common';
 import { ZodError, ZodSchema } from 'zod';
 
+const VALIDATABLE_PARAM_TYPES = new Set(['body', 'query', 'param']);
+
 export class ZodValidationPipe implements PipeTransform {
-  constructor(private schema: ZodSchema) { }
+  constructor(private schema: ZodSchema) {}
 
   transform(value: unknown, metadata: ArgumentMetadata) {
+    if (!VALIDATABLE_PARAM_TYPES.has(metadata.type)) {
+      return value;
+    }
+
     try {
       return this.schema.parse(value);
     } catch (error) {
