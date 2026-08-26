@@ -8,9 +8,12 @@
 #
 # Deploy / restart application containers only:
 #   docker compose -f docker/docker-compose.yaml up -d --build
+#   or: ./scripts/run.sh
 #
 # Requires the shared Docker network `commcare` (created by infra compose).
 # Start infra before the app, or app containers will fail to connect.
+
+name: commcare-app
 
 services:
   app:

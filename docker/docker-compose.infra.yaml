@@ -12,6 +12,8 @@
 # App containers (docker-compose.yaml) connect via Docker network `commcare`
 # using service hostnames: db, redis, kafka, otel-collector, etc.
 
+name: commcare-infra
+
 services:
   db:
     image: postgres:15
