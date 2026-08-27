@@ -17,6 +17,28 @@ export class RedlockService {
 		return acquired ? lockValue : null;
 	}
 
+	async acquireLockWithRetry(
+		cacheName: string,
+		key: string,
+		ttlSeconds: number,
+		options: { maxWaitMs?: number; retryIntervalMs?: number } = {},
+	): Promise<string | null> {
+		const maxWaitMs = options.maxWaitMs ?? 60_000;
+		const retryIntervalMs = options.retryIntervalMs ?? 1_000;
+		const deadline = Date.now() + maxWaitMs;
+		const lockValue = randomUUID();
+
+		while (Date.now() < deadline) {
+			const lock = await this.acquireLock(cacheName, key, ttlSeconds, lockValue);
+			if (lock) {
+				return lock;
+			}
+			await new Promise((resolve) => setTimeout(resolve, retryIntervalMs));
+		}
+
+		return null;
+	}
+
 	async releaseLock(cacheName: string, key: string, lockValue: string): Promise<boolean> {
 		cacheName = 'LOCK:' + cacheName;
 		const current = await this.redisService.getKey(cacheName, key);

@@ -74,3 +74,4 @@ FREEPBX_GRAPHQL_URL=freepbx graphql url
 FREEPBX_TOKEN_URL=freepbx token url
 FREEPBX_CLIENT_ID=freepbx client id
 FREEPBX_CLIENT_SECRET=freepbx client secret
+FREEPBX_OAUTH_SCOPE=gql:core gql:framework

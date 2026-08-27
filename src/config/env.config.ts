@@ -76,6 +76,7 @@ export const envSchema = z.object({
 	FREEPBX_TOKEN_URL: z.string().url().min(1),
 	FREEPBX_CLIENT_ID: z.string().min(1),
 	FREEPBX_CLIENT_SECRET: z.string().min(1),
+	FREEPBX_OAUTH_SCOPE: z.string().min(1).default('gql:core gql:framework'),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
