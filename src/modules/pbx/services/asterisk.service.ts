@@ -7,6 +7,8 @@ import { AriChannel } from "../types/ari-channel.types";
 export interface OriginateCallOptions {
 	appArgs?: string[];
 	callerId?: string;
+	callerIdName?: string | null;
+	callerIdNumber?: string | null;
 	timeout?: number;
 }
 
@@ -26,6 +28,42 @@ export class AsteriskService {
 	}
 
 	async onModuleInit() {}
+
+	/** ARI expects caller ID as `"Name" <number>`. Name-only values cause allocation failures. */
+	formatCallerId(
+		name: string | null | undefined,
+		number: string | null | undefined,
+	): string {
+		const resolvedNumber = (number ?? '').trim() || 'unknown';
+		const resolvedName = (name ?? '').trim();
+
+		if (resolvedName) {
+			return `"${resolvedName}" <${resolvedNumber}>`;
+		}
+
+		return `<${resolvedNumber}>`;
+	}
+
+	/** Ensure extension endpoints use the PJSIP/ prefix required by ARI. */
+	normalizePjsipEndpoint(endpoint: string): string {
+		const trimmed = endpoint.trim();
+		if (!trimmed) {
+			return trimmed;
+		}
+
+		if (trimmed.includes('/')) {
+			return trimmed;
+		}
+
+		return `PJSIP/${trimmed}`;
+	}
+
+	buildOutboundEndpoint(destinationNumber: string): string {
+		return envConfig.ARI_OUTBOUND_ENDPOINT_TEMPLATE.replace(
+			'{number}',
+			destinationNumber,
+		);
+	}
 
 	private getToken(username: string, password: string): string {
 		return `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
@@ -56,15 +94,24 @@ export class AsteriskService {
 	}
 
 	async originateCall(endpoint: string, options: OriginateCallOptions = {}): Promise<AriChannel> {
+		const normalizedEndpoint = this.normalizePjsipEndpoint(endpoint);
+		const callerId =
+			options.callerId ??
+			this.formatCallerId(options.callerIdName, options.callerIdNumber);
+
 		const url = new URL(`${this.ariBaseUrl}/ari/channels`);
-		url.searchParams.set('endpoint', endpoint);
+		url.searchParams.set('endpoint', normalizedEndpoint);
 		url.searchParams.set('app', ARI_APP_NAME);
-		url.searchParams.set('callerId', options.callerId ?? 'Unknown');
+		url.searchParams.set('callerId', callerId);
 		url.searchParams.set('timeout', String(options.timeout ?? 30));
 
 		for (const arg of options.appArgs ?? []) {
 			url.searchParams.append('appArgs', arg);
 		}
+
+		this.logger.log(
+			`ARI originate: endpoint=${normalizedEndpoint} callerId=${callerId}`,
+		);
 
 		return await this.requestClient.hitRequest({
 			method: 'POST',

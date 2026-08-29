@@ -160,10 +160,8 @@ export class CallsService {
 			startedAt: new Date(),
 		});
 
-		const callerId =
-			fromExtension.callerIdNumber ??
-			fromExtension.callerIdName ??
-			fromNumber;
+		const callerIdName = fromExtension.callerIdName;
+		const callerIdNumber = fromExtension.callerIdNumber ?? fromNumber;
 
 		const appArgs = [
 			CLICK2CALL_APP_ARGS.WORKFLOW,
@@ -176,15 +174,22 @@ export class CallsService {
 		try {
 			const channel = await this.asteriskService.originateCall(
 				fromExtension.pjsipEndpoint,
-				{ appArgs, callerId },
+				{
+					appArgs,
+					callerIdName,
+					callerIdNumber,
+				},
 			);
 
 			call.callerChannelId = channel.id;
 			call.status = CallStatus.ORIGINATING;
 			await this.callsRepository.updateCall(call);
 		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
 			this.logger.error(
-				`Error originating click2call ${call.id}: ${error instanceof Error ? error.message : error}`,
+				`Error originating click2call ${call.id}: ${message}. ` +
+					'If Asterisk returned "Allocation failed", verify the agent extension is registered ' +
+					'(softphone online) and the PJSIP endpoint exists.',
 			);
 			call.status = CallStatus.FAILED;
 			call.endedAt = new Date();
@@ -430,6 +435,8 @@ export class CallsService {
 				return;
 			}
 			endpoint = toExtension.pjsipEndpoint;
+		} else {
+			endpoint = this.asteriskService.buildOutboundEndpoint(call.callToNumber);
 		}
 
 		const appArgs = [
@@ -443,7 +450,7 @@ export class CallsService {
 		try {
 			const channel = await this.asteriskService.originateCall(endpoint, {
 				appArgs,
-				callerId: call.callerNumber ?? undefined,
+				callerIdNumber: call.callerNumber ?? undefined,
 			});
 
 			call.calleeChannelId = channel.id;

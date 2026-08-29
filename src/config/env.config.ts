@@ -73,6 +73,11 @@ export const envSchema = z.object({
 	ARI_CONSUMER_ENABLED: envBoolean(false),
 	ARI_LEADER_LOCK_TTL_SECONDS: z.coerce.number().int().positive().default(10),
 	ARI_LEADER_LOCK_RENEW_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
+	/** Outbound dial template for external click2call. Use {number} placeholder. */
+	ARI_OUTBOUND_ENDPOINT_TEMPLATE: z
+		.string()
+		.min(1)
+		.default('Local/{number}@from-internal'),
 
 	// FreePbx
 	FREEPBX_BASE_URL: z.string().url().min(1),

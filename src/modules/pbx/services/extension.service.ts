@@ -55,7 +55,7 @@ export class ExtensionService {
 		extension.asteriskHost = env.ARI_HOST;
 		extension.asteriskPort = DEFAULT_ASTERISK_PORT;
 		extension.asteriskTransport = ExtensionTransport.UDP;
-		extension.pjsipEndpoint = extensionNumber;
+		extension.pjsipEndpoint = `PJSIP/${extensionNumber}`;
 		extension.pjsipUsername = extensionNumber;
 		extension.pjsipPassword = this.generatePjsipPassword();
 		extension.callerIdName = input.callerIdName ?? null;
