@@ -1,12 +1,14 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { RequestClient } from "../../../shared/utils/services/request.service";
-
+import {env as envConfig} from '../../../config/env.config';
 @Injectable()
 export class AsteriskService {
 	private ami;
 	private ari;
-
-	constructor(private readonly requestClient: RequestClient, private readonly logger: Logger){}
+	private ariBaseUrl :string | null= null
+	constructor(private readonly requestClient: RequestClient, private readonly logger: Logger){
+		this.ariBaseUrl = envConfig.ARI_HOST
+	}
 
 	async onModuleInit() {
 		await this.connectAMI();
@@ -62,7 +64,8 @@ export class AsteriskService {
 	}
 
 	async healthCheckAsterisk(host: string,username: string, password: string): Promise<unknown>{
-		const url = `http://${host}/asterisk/ping`;
+		const url = `${this.ariBaseUrl}/ari/asterisk/ping`;
+		this.logger.log("ARI Base URL: ", this.ariBaseUrl)
 		const token = this.getToken(username, password);
 		this.logger.log(`Host: ${host} Username: ${username} Password: ${password}`)
 		this.logger.log(`Health Check Asterisk: ${url} with token: ${token}`)
@@ -74,5 +77,11 @@ export class AsteriskService {
 				'Authorization': this.getToken(username, password)
 			}
 		})
+	}
+
+	/**
+	 * Create an ARI application
+	 */
+	async createAriApplication(){
 	}
 }

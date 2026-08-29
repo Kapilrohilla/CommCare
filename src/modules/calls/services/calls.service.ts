@@ -5,6 +5,7 @@ import { CallEntity } from '../entity/calls.entity';
 import { ProcessedCallData } from '../types/processed-call.types';
 import { CallEventsService } from './call-events.service';
 import { CallLegsService } from './call-legs.service';
+import { CallStatus } from '../constants/call.constant';
 
 @Injectable()
 export class CallsService {
