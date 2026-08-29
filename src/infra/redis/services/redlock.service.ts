@@ -47,4 +47,19 @@ export class RedlockService {
 		}
 		return (await this.redisService.deleteKey(cacheName, key)) > 0;
 	}
+
+	async renewLock(
+		cacheName: string,
+		key: string,
+		lockValue: string,
+		ttlSeconds: number,
+	): Promise<boolean> {
+		cacheName = 'LOCK:' + cacheName;
+		const current = await this.redisService.getKey<string>(cacheName, key);
+		if (current !== lockValue) {
+			return false;
+		}
+		await this.redisService.setKey(cacheName, key, lockValue, ttlSeconds);
+		return true;
+	}
 }

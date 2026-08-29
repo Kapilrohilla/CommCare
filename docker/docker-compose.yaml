@@ -33,8 +33,32 @@ services:
       READER_DB_HOST: db
       REDIS_HOST: redis
       KAFKA_BROKERS: kafka:9092
+      ARI_CONSUMER_ENABLED: 'false'
       TRACING_ENABLED: 'true'
       OTEL_SERVICE_NAME: commcare
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+    networks:
+      - commcare
+    restart: unless-stopped
+
+  ari-consumer:
+    build:
+      context: ..
+      dockerfile: docker/ari-consumer/Dockerfile
+    container_name: commcare-ari-consumer
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    env_file:
+      - ../.env
+    environment:
+      ARI_CONSUMER_ENABLED: 'true'
+      KAFKA_SUBSCRIBER: 'NONE'
+      BULLMQ_SUBSCRIBER: 'NONE'
+      BULLMQ_CONSUMERS_ENABLED: 'false'
+      REDIS_HOST: redis
+      KAFKA_BROKERS: kafka:9092
+      TRACING_ENABLED: 'true'
+      OTEL_SERVICE_NAME: commcare-ari-consumer
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     networks:
       - commcare

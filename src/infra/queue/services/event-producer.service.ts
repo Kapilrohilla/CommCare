@@ -4,6 +4,7 @@ import { KafkaProducerService } from '../../kafka/services/kafka-producer.servic
 /** Optional BullMQ job delay after Kafka → worker handoff (ms). */
 export interface EventPublishOptions {
   delayMs?: number;
+  partitionKey?: string;
 }
 
 /**
@@ -49,7 +50,7 @@ export class EventProducer implements IEventProducer {
           message = { payload, delay: delayMs };
         }
       }
-      await this.kafkaProducer.publishEvent(eventName, message);
+      await this.kafkaProducer.publishEvent(eventName, message, options?.partitionKey);
       this.logger.debug(`Event published: ${eventName}${delayMs ? ` (delay ${delayMs}ms)` : ''}`);
     } catch (error) {
       this.logger.error(`Failed to publish event ${eventName}:`, error);

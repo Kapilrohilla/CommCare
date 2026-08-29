@@ -67,6 +67,11 @@ WEBHOOK_RETRIES=3
 ARI_HOST=asterisk ari host (with port if have)
 ARI_USER=asterisk ari username
 ARI_PASSWORD=asterisk ari password
+ARI_WS_URL=
+# Set true only when running ARI consumer in-process (local dev). Docker uses commcare-ari-consumer service.
+ARI_CONSUMER_ENABLED=false
+ARI_LEADER_LOCK_TTL_SECONDS=10
+ARI_LEADER_LOCK_RENEW_INTERVAL_MS=5000
 
 # FreePbx
 FREEPBX_BASE_URL=freepbx base url

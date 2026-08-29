@@ -9,6 +9,7 @@ import { FreePbxController } from './controller/freepbx.controller';
 import { AsteriskCDRService } from './services/asterisk-cdr.service';
 import { FreePbxService } from './services/freepbx.service';
 import { ExtensionService } from './services/extension.service';
+import { AriEventListenerService } from './services/ari-event-listener.service';
 import { ExtensionRepository } from './repositories/extension.repository';
 import { Extension } from './entity/extension.entity';
 import { CallsModule } from '../calls/calls.module';
@@ -26,8 +27,9 @@ import { RedisModule } from 'src/infra/redis/redis.module';
 		FreePbxService,
 		ExtensionRepository,
 		ExtensionService,
+		AriEventListenerService,
 		Logger,
 	],
-	exports: [AsteriskCDRService, ExtensionService, FreePbxService],
+	exports: [AsteriskCDRService, ExtensionService, FreePbxService, AriEventListenerService],
 })
 export class PbxModule {}

@@ -11,4 +11,5 @@ export const Events = {
 	extensionCreate: 'extensionCreate',
 	bulkExtensionAssignment: 'bulkExtensionAssignment',
 	extensionPoolMaintenance: 'extensionPoolMaintenance',
+	ariCallEvent: 'ariCallEvent',
 };

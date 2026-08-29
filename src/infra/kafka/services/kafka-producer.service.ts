@@ -24,28 +24,40 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
     await this.disconnect();
   }
 
+  private static readonly CONNECT_TIMEOUT_MS = 10_000;
+
   private async init(): Promise<void> {
     try {
       const kafka = new Kafka(buildKafkaConfig());
       this.producer = kafka.producer();
 
       try {
-        await this.producer.connect().catch((e) => {
-          const error = e instanceof Error ? e : new Error(String(e));
-          this.logger.error(`[kafka-carrum-service-producer] ${error.message}`, error);
-        });
+        await Promise.race([
+          this.producer.connect(),
+          new Promise<never>((_, reject) => {
+            setTimeout(
+              () => reject(new Error(`Kafka producer connect timed out after ${KafkaProducerService.CONNECT_TIMEOUT_MS}ms`)),
+              KafkaProducerService.CONNECT_TIMEOUT_MS,
+            );
+          }),
+        ]);
         this.logger.log('[kafka-carrum-service-producer], Connected to Kafka producer');
       } catch (e) {
         const error = e instanceof Error ? e : new Error(String(e));
-        this.logger.error('[kafka-carrum-service-producer], Unable to publish app event producer :  ', error);
-        process.exit(0);
+        this.logger.error(`[kafka-carrum-service-producer] ${error.message}`, error.stack);
+        try {
+          await this.producer.disconnect();
+        } catch {
+          // ignore
+        }
+        this.producer = null;
       }
 
       this.handleSignals();
     } catch (e) {
       const error = e instanceof Error ? e : new Error(String(e));
-      this.logger.error('[kafka-carrum-service-producer], Unable to publish app event producer :  ', error);
-      process.exit(0);
+      this.logger.error('[kafka-carrum-service-producer], Unable to initialize Kafka producer:', error);
+      this.producer = null;
     }
   }
 
@@ -87,9 +99,8 @@ export class KafkaProducerService implements OnModuleInit, OnModuleDestroy {
       })
   }
 
-  async publishEvent(eventName: string, message: unknown): Promise<void> {
-    // const id = generateAlphaNumericId(20);
-    const id = randomUUID();
+  async publishEvent(eventName: string, message: unknown, partitionKey?: string): Promise<void> {
+    const id = partitionKey ?? randomUUID();
     this.logger.log(`[kafka-carrum-service-producer], Producing message to kafka EventName : ${eventName}, Message ; ${JSON.stringify(message)}`);
     return this._publishEvent(eventName, message, eventName, id, 0, 'NONE');
   }

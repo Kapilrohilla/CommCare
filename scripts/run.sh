@@ -1,5 +1,5 @@
 #!/bin/bash
-# Rebuild and restart application containers only (app + asterisk-cdr-worker).
+# Rebuild and restart application containers only (app + ari-consumer + asterisk-cdr-worker).
 # Infrastructure (commcare-infra project) is not affected.
 #
 # Start infra once:

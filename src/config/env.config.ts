@@ -69,6 +69,10 @@ export const envSchema = z.object({
 	ARI_HOST: z.string().min(1),
 	ARI_USER: z.string().min(1),
 	ARI_PASSWORD: z.string().min(1),
+	ARI_WS_URL: z.string().url().optional(),
+	ARI_CONSUMER_ENABLED: envBoolean(false),
+	ARI_LEADER_LOCK_TTL_SECONDS: z.coerce.number().int().positive().default(10),
+	ARI_LEADER_LOCK_RENEW_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
 
 	// FreePbx
 	FREEPBX_BASE_URL: z.string().url().min(1),
