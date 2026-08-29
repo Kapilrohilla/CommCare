@@ -16,7 +16,7 @@ export class CallsRepository {
 		private readonly readerRepository: BaseRepository<CallEntity>,
 	) {}
 
-	async createCall(call: CallEntity): Promise<CallEntity> {
+	async createCall(call: Partial<CallEntity>): Promise<CallEntity> {
 		return this.writerRepository.save(call);
 	}
 
@@ -42,5 +42,22 @@ export class CallsRepository {
 
 	async findByLinkedId(linkedId: string): Promise<CallEntity | null> {
 		return this.readerRepository.findOne({ where: { linkedId } });
+	}
+
+	async findById(id: string): Promise<CallEntity | null> {
+		return this.readerRepository.findOne({ where: { id } });
+	}
+
+	async findActiveClick2CallByChannel(channelId: string): Promise<CallEntity | null> {
+		return this.readerRepository
+			.createQueryBuilder('call')
+			.where('call.workflow = :workflow', { workflow: 'click_to_call' })
+			.andWhere('call.endedAt IS NULL')
+			.andWhere(
+				'(call.callerChannelId = :channelId OR call.calleeChannelId = :channelId)',
+				{ channelId },
+			)
+			.orderBy('call.createdAt', 'DESC')
+			.getOne();
 	}
 }

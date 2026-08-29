@@ -42,14 +42,15 @@ export class AsteriskCDRService {
 			`Handling ${eventName} for ${linkedId} (retry ${retryCount}): ${body.cdrs.length} CDR events, ${body.events.length} AMI events`,
 		);
 
-		const processedCall = buildProcessedCall(body);
-		if (!processedCall) {
-			this.logger.warn(
-				`Skipping ${eventName} for ${linkedId}: missing linkedId or CDR data`,
-			);
-			return;
-		}
+		// const processedCall = buildProcessedCall(body);
+		// if (!processedCall) {
+		// 	this.logger.warn(
+		// 		`Skipping ${eventName} for ${linkedId}: missing linkedId or CDR data`,
+		// 	);
+		// 	return;
+		// }
 
-		await this.callServices.processCdr(processedCall);
+		// await this.callServices.processCdr(processedCall);
+
 	}
 }

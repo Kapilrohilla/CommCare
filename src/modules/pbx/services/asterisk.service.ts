@@ -1,87 +1,111 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { RequestClient } from "../../../shared/utils/services/request.service";
-import {env as envConfig} from '../../../config/env.config';
+import { env as envConfig } from '../../../config/env.config';
+import { ARI_APP_NAME } from "src/constants/app.constant";
+import { AriChannel } from "../types/ari-channel.types";
+
+export interface OriginateCallOptions {
+	appArgs?: string[];
+	callerId?: string;
+	timeout?: number;
+}
+
 @Injectable()
 export class AsteriskService {
-	private ami;
-	private ari;
-	private ariBaseUrl :string | null= null
-	constructor(private readonly requestClient: RequestClient, private readonly logger: Logger){
-		this.ariBaseUrl = envConfig.ARI_HOST
+	private ariBaseUrl: string | null = null;
+	private readonly username: string;
+	private readonly password: string;
+
+	constructor(
+		private readonly requestClient: RequestClient,
+		private readonly logger: Logger,
+	) {
+		this.ariBaseUrl = envConfig.ARI_HOST;
+		this.username = envConfig.ARI_USER;
+		this.password = envConfig.ARI_PASSWORD;
 	}
 
-	async onModuleInit() {
-		await this.connectAMI();
-		await this.connectARI();
+	async onModuleInit() {}
+
+	private getToken(username: string, password: string): string {
+		return `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
 	}
 
-	async connectAMI(){
-		// code to connect to AMI
+	private getAuthHeaders(): Record<string, string> {
+		return {
+			'Content-Type': 'application/json',
+			'Authorization': this.getToken(this.username, this.password),
+		};
 	}
 
-	async connectARI(){
-		// code to connect to ARI
-	}
+	async healthCheckAsterisk(): Promise<unknown> {
+		const healthCheckUrl = `${this.ariBaseUrl}/ari/asterisk/ping`;
+		this.logger.log("ARI Base URL: ", this.ariBaseUrl);
 
-	async disconnectAMI(){
-		// code to disconnect from AMI
-	}
+		const token = this.getToken(this.username, this.password);
+		this.logger.log(`Health Check Asterisk: ${healthCheckUrl}`);
 
-	async disconnectARI(){
-		// code to disconnect from ARI
-	}
-
-	async reconnectAMI(){
-		// code to reconnect to AMI
-	}
-	
-	async reconnectARI(){
-		// code to reconnect to ARI
-	}
-
-	async listenToEvents(){
-		// code to listen to events
-	}
-
-	async originate(){
-		// code to originate a call
-	}
-	
-	async hangup(){
-		// code to hang up a call
-	}
-	
-	async bridge(){
-		// code to bridge a call
-	}
-
-	async createExtension(): Promise<void>{
-		// code to create an extension
-	}
-
-	private getToken(username: string, password: string): string{
-		return `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`
-	}
-
-	async healthCheckAsterisk(host: string,username: string, password: string): Promise<unknown>{
-		const url = `${this.ariBaseUrl}/ari/asterisk/ping`;
-		this.logger.log("ARI Base URL: ", this.ariBaseUrl)
-		const token = this.getToken(username, password);
-		this.logger.log(`Host: ${host} Username: ${username} Password: ${password}`)
-		this.logger.log(`Health Check Asterisk: ${url} with token: ${token}`)
 		return await this.requestClient.hitRequest({
 			method: 'GET',
-			url,
+			url: healthCheckUrl,
 			headers: {
 				'Content-Type': 'application/json',
-				'Authorization': this.getToken(username, password)
-			}
-		})
+				'Authorization': token,
+			},
+		});
 	}
 
-	/**
-	 * Create an ARI application
-	 */
-	async createAriApplication(){
+	async originateCall(endpoint: string, options: OriginateCallOptions = {}): Promise<AriChannel> {
+		const url = new URL(`${this.ariBaseUrl}/ari/channels`);
+		url.searchParams.set('endpoint', endpoint);
+		url.searchParams.set('app', ARI_APP_NAME);
+		url.searchParams.set('callerId', options.callerId ?? 'Unknown');
+		url.searchParams.set('timeout', String(options.timeout ?? 30));
+
+		for (const arg of options.appArgs ?? []) {
+			url.searchParams.append('appArgs', arg);
+		}
+
+		return await this.requestClient.hitRequest({
+			method: 'POST',
+			url: url.toString(),
+			headers: this.getAuthHeaders(),
+		});
+	}
+
+	async answerChannel(channelId: string): Promise<void> {
+		await this.requestClient.hitRequest({
+			method: 'POST',
+			url: `${this.ariBaseUrl}/ari/channels/${encodeURIComponent(channelId)}/answer`,
+			headers: this.getAuthHeaders(),
+		});
+	}
+
+	async hangupChannel(channelId: string): Promise<void> {
+		await this.requestClient.hitRequest({
+			method: 'DELETE',
+			url: `${this.ariBaseUrl}/ari/channels/${encodeURIComponent(channelId)}`,
+			headers: this.getAuthHeaders(),
+		});
+	}
+
+	async createBridge(): Promise<{ id: string }> {
+		return await this.requestClient.hitRequest({
+			method: 'POST',
+			url: `${this.ariBaseUrl}/ari/bridges`,
+			headers: this.getAuthHeaders(),
+			data: { type: 'mixing' },
+		});
+	}
+
+	async addChannelToBridge(bridgeId: string, channelId: string): Promise<void> {
+		const url = new URL(`${this.ariBaseUrl}/ari/bridges/${encodeURIComponent(bridgeId)}/addChannel`);
+		url.searchParams.set('channel', channelId);
+
+		await this.requestClient.hitRequest({
+			method: 'POST',
+			url: url.toString(),
+			headers: this.getAuthHeaders(),
+		});
 	}
 }

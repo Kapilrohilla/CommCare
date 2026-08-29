@@ -1,3 +1,14 @@
+export enum CallWorkflow {
+	CLICK_TO_CALL = 'click_to_call',
+}
+
+/** Stasis appArgs passed to Asterisk for click2call correlation. */
+export const CLICK2CALL_APP_ARGS = {
+	WORKFLOW: 'click2call',
+	LEG_AGENT: 'agent',
+	LEG_CALLEE: 'callee',
+} as const;
+
 export enum CallDirection {
 	/**
 	 * Extension/agent → external number via trunk
@@ -20,6 +31,11 @@ export enum CallStatus {
 	 * Call/channel has started but hasn't rung yet.
 	 */
 	INITIATED = 'initiated',
+
+	/**
+	 * Call/channel is being originated.
+	 */
+	ORIGINATING = 'originating',
 
 	/**
 	 * Destination is being alerted.

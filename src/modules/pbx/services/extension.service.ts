@@ -257,6 +257,14 @@ export class ExtensionService {
 		return this.extensionRepository.getExtension(id);
 	}
 
+	async getExtensionByNumber(extensionNumber: string): Promise<Extension | null> {
+		return this.extensionRepository.getExtensionByNumber(extensionNumber);
+	}
+
+	async getExtensionById(extensionNumber: string): Promise<Extension | null> {
+		return this.extensionRepository.getExtensionByNumber(extensionNumber);
+	}
+
 	async getExtensionsByTenantId(tenantId: string): Promise<Extension[]> {
 		return this.extensionRepository.getExtensionsByTenantId(tenantId);
 	}

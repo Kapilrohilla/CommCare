@@ -1,8 +1,9 @@
 import { z} from "zod";
 
-const callOriginateSchema = z.object({
-	from: z.string().min(3),
-	to: z.string().min(3),
+export const CallOriginateDto = z.object({
+	fromNumber: z.string().min(3),
+	toNumber: z.string().min(3),
+	type: z.enum(['internal', 'external']).default('internal'),
 }).strict()
 
-export type CallOriginateDto = z.infer<typeof callOriginateSchema>;
+export type CallOriginateDto = z.infer<typeof CallOriginateDto>;

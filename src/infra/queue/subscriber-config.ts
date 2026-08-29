@@ -3,7 +3,7 @@ import { ExtensionService } from 'src/modules/pbx/services/extension.service';
 import { Events } from '../../constants/event.constant';
 import { HealthCheckService } from '../../modules/healthCheck/services/healthCheck.service';
 import { TenancyExtensionService } from 'src/modules/tenancy/services/tenancy-extension.service';
-import { AriEventListenerService } from 'src/modules/pbx/services/ari-event-listener.service';
+import { CallsService } from 'src/modules/calls/services/calls.service';
 /**
  * Subscriber Configuration
  * Centralized configuration for event subscribers
@@ -100,8 +100,8 @@ export const SUBSCRIBER_CONFIGS: SubscriberConfig[] = [
   },
   {
     eventName: Events.ariCallEvent,
-    serviceClass: AriEventListenerService,
-    subscriberServiceName: 'ariEventListenerService',
+    serviceClass:CallsService,
+    subscriberServiceName: 'callsService',
     concurrency: 5,
   },
 ];

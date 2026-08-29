@@ -1,7 +1,5 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { DatabaseModule } from 'src/infra/database/connectors/typeORM';
-import { ExtensionRepository } from 'src/modules/pbx/repositories/extension.repository';
-import { Extension } from 'src/modules/pbx/entity/extension.entity';
 import { CallEntity } from './entity/calls.entity';
 import { CallLegEntity } from './entity/call-legs.entity';
 import { CallEventEntity } from './entity/call-events.entity';
@@ -12,6 +10,8 @@ import { CallEventsService } from './services/call-events.service';
 import { CallsRepository } from './repositories/calls.repository';
 import { CallLegsRepository } from './repositories/call-legs.repository';
 import { CallEventsRepository } from './repositories/call-events.repository';
+import { PbxModule } from '../pbx/pbx.module';
+import { QueueModule } from 'src/infra/queue/queue.module';
 
 @Module({
 	imports: [
@@ -19,18 +19,19 @@ import { CallEventsRepository } from './repositories/call-events.repository';
 			CallEntity,
 			CallLegEntity,
 			CallEventEntity,
-			Extension,
 		]),
+		PbxModule,
+		QueueModule,
 	],
 	controllers: [CallsController],
 	providers: [
 		CallsRepository,
 		CallLegsRepository,
 		CallEventsRepository,
-		ExtensionRepository,
 		CallsService,
 		CallLegsService,
 		CallEventsService,
+		Logger,
 	],
 	exports: [
 		CallsService,

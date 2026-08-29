@@ -7,13 +7,13 @@ import {
 } from '@nestjs/common';
 import ResponseService from '../../../shared/utils/services/response.service';
 import { HealthCheckService } from '../services/healthCheck.service';
-import { AsteriskHealthService } from '../services/asterisk-health.service';
 import { env as envConfig } from '../../../config/env.config';
+import { AsteriskService } from 'src/modules/pbx/services/asterisk.service';
 
 
 @Controller('healthCheck')
 export class HealthCheckController {
-	constructor(private readonly healthCheckService: HealthCheckService, private readonly asteriskHealthService: AsteriskHealthService) {}
+	constructor(private readonly healthCheckService: HealthCheckService, private readonly asteriskService: AsteriskService) {}
 
 	@Get('/health')
 	public async health() {
@@ -66,7 +66,7 @@ export class HealthCheckController {
 
 	@Get("/asterisk")
 	public async asterisk(){
-		const data = await this.asteriskHealthService.healthCheckAsterisk()
+		const data = await this.asteriskService.healthCheckAsterisk()
 
 		return ResponseService.success(
 			'Asterisk health check successful',
