@@ -135,6 +135,7 @@ export class AriConsumerService implements OnModuleInit, OnModuleDestroy {
 		await this.disconnectWebSocket();
 
 		const url = this.buildWebSocketUrl();
+		this.logger.log(`ARI WebSocket URL: ${url}`);
 		const parsedUrl = new URL(url);
 		this.logger.log(`Connecting ARI WebSocket to ${parsedUrl.host}${parsedUrl.pathname}`);
 
@@ -158,7 +159,6 @@ export class AriConsumerService implements OnModuleInit, OnModuleDestroy {
 		});
 
 		ws.addEventListener('error', (e) => {
-			
 			this.logger.error('ARI WebSocket error', e);
 		});
 	}
