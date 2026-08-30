@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CallEventEntity } from '../entity/call-events.entity';
 import { CallEventsRepository } from '../repositories/call-events.repository';
 import { ProcessedCallEvent } from '../types/processed-call.types';
+import { AppendAriCallEventInput } from '../types/click2call-leg.types';
 
 @Injectable()
 export class CallEventsService {
@@ -9,6 +10,21 @@ export class CallEventsService {
 
 	async getEventsByCallId(callId: string): Promise<CallEventEntity[]> {
 		return this.callEventsRepository.findByCallId(callId);
+	}
+
+	async appendAriEvent(input: AppendAriCallEventInput): Promise<CallEventEntity> {
+		const event = new CallEventEntity();
+		event.callId = input.callId;
+		event.callLegId = input.callLegId ?? null;
+		event.linkedId = input.linkedId ?? null;
+		event.uniqueId = input.channelId ?? null;
+		event.eventType = input.eventType;
+		event.eventTime = input.eventTime;
+		event.channel = input.channelName ?? input.channelId ?? null;
+		event.bridgeUniqueId = input.bridgeUniqueId ?? null;
+		event.payload = input.payload;
+
+		return this.callEventsRepository.save(event);
 	}
 
 	buildFromProcessed(

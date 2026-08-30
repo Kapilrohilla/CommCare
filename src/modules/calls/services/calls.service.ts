@@ -12,9 +12,13 @@ import { CallLegsService } from './call-legs.service';
 import {
 	CLICK2CALL_APP_ARGS,
 	CallDirection,
+	CallLegStatus,
 	CallStatus,
 	CallWorkflow,
 } from '../constants/call.constant';
+import { Click2CallLegRole } from '../types/click2call-leg.types';
+import { CallLegEntity } from '../entity/call-legs.entity';
+import { AriChannel } from 'src/modules/pbx/types/ari-channel.types';
 import { AuthContext } from 'src/shared/types/auth.types';
 import { AsteriskCdrWebhookPayload } from 'src/modules/pbx/dto/asterisk-cdr.dto';
 import { EventProducer } from 'src/infra/queue/services/event-producer.service';
@@ -73,49 +77,49 @@ export class CallsService {
 		return this.callsRepository.deleteCall(id);
 	}
 
-	async processCdr(processedCall: ProcessedCallData): Promise<CallEntity> {
-		const savedCall = await this.upsertFromProcessed(processedCall);
-		const legIdByUniqueId = await this.callLegsService.upsertManyFromProcessed(
-			savedCall.id,
-			processedCall.legs,
-		);
-		const callEvents = await this.callEventsService.replaceForCall(
-			savedCall.id,
-			processedCall.events,
-			legIdByUniqueId,
-		);
+	// async processCdr(processedCall: ProcessedCallData): Promise<CallEntity> {
+	// 	const savedCall = await this.upsertFromProcessed(processedCall);
+	// 	const legIdByUniqueId = await this.callLegsService.upsertManyFromProcessed(
+	// 		savedCall.id,
+	// 		processedCall.legs,
+	// 	);
+	// 	const callEvents = await this.callEventsService.replaceForCall(
+	// 		savedCall.id,
+	// 		processedCall.events,
+	// 		legIdByUniqueId,
+	// 	);
 
-		this.logger.log(
-			`Processed call ${savedCall.linkedId}: ${processedCall.legs.length} legs, ${callEvents.length} events`,
-		);
+	// 	this.logger.log(
+	// 		`Processed call ${savedCall.linkedId}: ${processedCall.legs.length} legs, ${callEvents.length} events`,
+	// 	);
 
-		return savedCall;
-	}
+	// 	return savedCall;
+	// }
 
-	async upsertFromProcessed(processedCall: ProcessedCallData): Promise<CallEntity> {
-		const existingCall = await this.callsRepository.findByLinkedId(
-			processedCall.linkedId,
-		);
+	// async upsertFromProcessed(processedCall: ProcessedCallData): Promise<CallEntity> {
+	// 	const existingCall = await this.callsRepository.findByLinkedId(
+	// 		processedCall.linkedId,
+	// 	);
 
-		const call = existingCall ?? new CallEntity();
-		call.linkedId = processedCall.linkedId;
-		call.direction = processedCall.direction;
-		call.callerNumber = processedCall.from;
-		call.callToNumber = processedCall.to;
-		call.status = processedCall.status;
-		call.startedAt = processedCall.startedAt;
-		call.answeredAt = processedCall.answeredAt;
-		call.endedAt = processedCall.endedAt;
-		call.duration = processedCall.duration;
-		call.billableSeconds = processedCall.billableSeconds;
-		call.source = processedCall.source;
-		call.destination = processedCall.destination;
-		call.context = processedCall.context;
+	// 	const call = existingCall ?? new CallEntity();
+	// 	call.linkedId = processedCall.linkedId;
+	// 	call.direction = processedCall.direction;
+	// 	call.callerNumber = processedCall.from;
+	// 	call.callToNumber = processedCall.to;
+	// 	call.status = processedCall.status;
+	// 	call.startedAt = processedCall.startedAt;
+	// 	call.answeredAt = processedCall.answeredAt;
+	// 	call.endedAt = processedCall.endedAt;
+	// 	call.duration = processedCall.duration;
+	// 	call.billableSeconds = processedCall.billableSeconds;
+	// 	call.source = processedCall.source;
+	// 	call.destination = processedCall.destination;
+	// 	call.context = processedCall.context;
 
-		return existingCall
-			? this.callsRepository.updateCall(call)
-			: this.callsRepository.createCall(call);
-	}
+	// 	return existingCall
+	// 		? this.callsRepository.updateCall(call)
+	// 		: this.callsRepository.createCall(call);
+	// }
 
 	async originateClick2Call(
 		authContext: AuthContext,
@@ -184,6 +188,13 @@ export class CallsService {
 			call.callerChannelId = channel.id;
 			call.status = CallStatus.ORIGINATING;
 			await this.callsRepository.updateCall(call);
+
+			await this.createClick2CallLeg(call, channel, 'agent', fromNumber, toNumber);
+			await this.recordClick2CallEvent(call.id, 'Originate', {
+				channelId: channel.id,
+				channelName: channel.name,
+				payload: { legRole: 'agent', state: channel.state },
+			});
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			this.logger.error(
@@ -194,6 +205,9 @@ export class CallsService {
 			call.status = CallStatus.FAILED;
 			call.endedAt = new Date();
 			await this.callsRepository.updateCall(call);
+			await this.recordClick2CallEvent(call.id, 'OriginateFailed', {
+				payload: { message, fromNumber, toNumber, type },
+			});
 		}
 
 		return call;
@@ -299,6 +313,77 @@ export class CallsService {
 		};
 	}
 
+	private parseAriEventTime(event: RawAriEventBody): Date {
+		if (event.timestamp) {
+			const parsed = new Date(event.timestamp);
+			if (!Number.isNaN(parsed.getTime())) {
+				return parsed;
+			}
+		}
+		return new Date();
+	}
+
+	private async recordClick2CallEvent(
+		callId: string,
+		eventType: string,
+		options: {
+			eventTime?: Date;
+			channelId?: string | null;
+			channelName?: string | null;
+			linkedId?: string | null;
+			bridgeUniqueId?: string | null;
+			callLegId?: string | null;
+			payload?: Record<string, unknown>;
+		} = {},
+	): Promise<void> {
+		await this.callEventsService.appendAriEvent({
+			callId,
+			callLegId: options.callLegId ?? null,
+			eventType,
+			eventTime: options.eventTime ?? new Date(),
+			channelId: options.channelId ?? null,
+			channelName: options.channelName ?? null,
+			linkedId: options.linkedId ?? null,
+			bridgeUniqueId: options.bridgeUniqueId ?? null,
+			payload: options.payload ?? {},
+		});
+	}
+
+	private async createClick2CallLeg(
+		call: CallEntity,
+		channel: AriChannel,
+		legRole: Click2CallLegRole,
+		callerNumber: string,
+		destinationNumber: string,
+		status: CallLegStatus = CallLegStatus.CREATED,
+	): Promise<CallLegEntity> {
+		return this.callLegsService.upsertFromAriChannel({
+			callId: call.id,
+			channelId: channel.id,
+			channelName: channel.name,
+			linkedId: call.linkedId ?? channel.id,
+			legRole,
+			callerNumber,
+			callerName: channel.caller?.name ?? null,
+			destinationNumber,
+			status,
+			startedAt: new Date(),
+			raw: { ariState: channel.state },
+		});
+	}
+
+	private mapChannelStateToLegStatus(state?: string): CallLegStatus {
+		switch (state) {
+			case 'Ring':
+			case 'Ringing':
+				return CallLegStatus.RINGING;
+			case 'Up':
+				return CallLegStatus.ANSWERED;
+			default:
+				return CallLegStatus.INITIATED;
+		}
+	}
+
 	private async loadClick2Call(callId: string): Promise<CallEntity | null> {
 		const call = await this.callsRepository.findById(callId);
 		if (!call || call.workflow !== CallWorkflow.CLICK_TO_CALL) {
@@ -320,6 +405,34 @@ export class CallsService {
 			return;
 		}
 
+		const eventTime = this.parseAriEventTime(event);
+		const legRole: Click2CallLegRole =
+			parsed.leg === CLICK2CALL_APP_ARGS.LEG_CALLEE ? 'callee' : 'agent';
+		const destinationNumber =
+			legRole === 'agent' ? call.callerNumber ?? parsed.toNumber : parsed.toNumber;
+
+		const leg = await this.callLegsService.upsertFromAriChannel({
+			callId: call.id,
+			channelId,
+			channelName: event.channel?.name ?? channelId,
+			linkedId: call.linkedId ?? channelId,
+			legRole,
+			callerNumber: call.callerNumber,
+			callerName: event.channel?.caller?.name ?? null,
+			destinationNumber,
+			status: CallLegStatus.RINGING,
+			startedAt: eventTime,
+			raw: { ariState: event.channel?.state },
+		});
+
+		await this.recordClick2CallEvent(call.id, 'StasisStart', {
+			eventTime,
+			channelId,
+			channelName: event.channel?.name ?? null,
+			callLegId: leg.id,
+			payload: { ...(event as Record<string, unknown>), legRole },
+		});
+
 		if (parsed.leg === CLICK2CALL_APP_ARGS.LEG_AGENT) {
 			if (call.callerChannelId && call.callerChannelId !== channelId) {
 				return;
@@ -328,7 +441,7 @@ export class CallsService {
 			call.callerChannelId = channelId;
 			call.status = CallStatus.RINGING;
 			if (!call.startedAt) {
-				call.startedAt = new Date();
+				call.startedAt = eventTime;
 			}
 			await this.callsRepository.updateCall(call);
 			return;
@@ -351,12 +464,30 @@ export class CallsService {
 		const channelId = event.channel?.id;
 		const channelState = event.channel?.state;
 
-		if (!channelId || channelState !== 'Up') {
+		if (!channelId || !channelState) {
 			return;
 		}
 
 		const call = await this.findClick2CallByChannel(channelId);
 		if (!call) {
+			return;
+		}
+
+		const eventTime = this.parseAriEventTime(event);
+		const legStatus = this.mapChannelStateToLegStatus(channelState);
+		const leg = await this.callLegsService.updateLegStatus(channelId, legStatus, {
+			answeredAt: channelState === 'Up' ? eventTime : undefined,
+		});
+
+		await this.recordClick2CallEvent(call.id, 'ChannelStateChange', {
+			eventTime,
+			channelId,
+			channelName: event.channel?.name ?? null,
+			callLegId: leg?.id ?? null,
+			payload: { ...(event as Record<string, unknown>), channelState },
+		});
+
+		if (channelState !== 'Up') {
 			return;
 		}
 
@@ -383,6 +514,21 @@ export class CallsService {
 			return;
 		}
 
+		const eventTime = this.parseAriEventTime(event);
+		const wasAnswered = Boolean(call.answeredAt);
+		const legStatus = wasAnswered ? CallLegStatus.COMPLETED : CallLegStatus.CANCELLED;
+		const leg = await this.callLegsService.updateLegStatus(channelId, legStatus, {
+			endedAt: eventTime,
+		});
+
+		await this.recordClick2CallEvent(call.id, 'ChannelDestroyed', {
+			eventTime,
+			channelId,
+			channelName: event.channel?.name ?? null,
+			callLegId: leg?.id ?? null,
+			payload: event as Record<string, unknown>,
+		});
+
 		const otherChannelId =
 			channelId === call.callerChannelId
 				? call.calleeChannelId
@@ -398,9 +544,8 @@ export class CallsService {
 			}
 		}
 
-		const wasAnswered = Boolean(call.answeredAt);
 		call.status = wasAnswered ? CallStatus.COMPLETED : CallStatus.CANCELLED;
-		call.endedAt = new Date();
+		call.endedAt = eventTime;
 		if (call.startedAt) {
 			call.duration = Math.max(
 				0,
@@ -456,6 +601,20 @@ export class CallsService {
 			call.calleeChannelId = channel.id;
 			call.status = CallStatus.RINGING;
 			await this.callsRepository.updateCall(call);
+
+			await this.createClick2CallLeg(
+				call,
+				channel,
+				'callee',
+				call.callerNumber ?? '',
+				call.callToNumber ?? '',
+				CallLegStatus.CREATED,
+			);
+			await this.recordClick2CallEvent(call.id, 'OriginateCallee', {
+				channelId: channel.id,
+				channelName: channel.name,
+				payload: { legRole: 'callee', state: channel.state },
+			});
 		} catch (error) {
 			this.logger.error(
 				`Failed to originate callee leg for call ${call.id}: ${error instanceof Error ? error.message : error}`,
@@ -463,6 +622,12 @@ export class CallsService {
 			call.status = CallStatus.FAILED;
 			call.endedAt = new Date();
 			await this.callsRepository.updateCall(call);
+			await this.recordClick2CallEvent(call.id, 'OriginateCalleeFailed', {
+				payload: {
+					message: error instanceof Error ? error.message : String(error),
+					toNumber: call.callToNumber,
+				},
+			});
 
 			if (call.callerChannelId) {
 				try {
@@ -494,6 +659,37 @@ export class CallsService {
 			call.status = CallStatus.ANSWERED;
 			call.answeredAt = new Date();
 			await this.callsRepository.updateCall(call);
+
+			const bridgedAt = new Date();
+			if (call.callerChannelId) {
+				await this.callLegsService.upsertFromAriChannel({
+					callId: call.id,
+					channelId: call.callerChannelId,
+					legRole: 'agent',
+					status: CallLegStatus.CONNECTED,
+					bridgeUniqueId: bridge.id,
+					answeredAt: bridgedAt,
+				});
+			}
+			if (call.calleeChannelId) {
+				await this.callLegsService.upsertFromAriChannel({
+					callId: call.id,
+					channelId: call.calleeChannelId,
+					legRole: 'callee',
+					status: CallLegStatus.CONNECTED,
+					bridgeUniqueId: bridge.id,
+					answeredAt: bridgedAt,
+				});
+			}
+
+			await this.recordClick2CallEvent(call.id, 'BridgeCreated', {
+				bridgeUniqueId: bridge.id,
+				payload: {
+					bridgeId: bridge.id,
+					callerChannelId: call.callerChannelId,
+					calleeChannelId: call.calleeChannelId,
+				},
+			});
 		} catch (error) {
 			this.logger.error(
 				`Failed to bridge call ${call.id}: ${error instanceof Error ? error.message : error}`,
@@ -501,6 +697,36 @@ export class CallsService {
 			call.status = CallStatus.FAILED;
 			call.endedAt = new Date();
 			await this.callsRepository.updateCall(call);
+			await this.recordClick2CallEvent(call.id, 'BridgeFailed', {
+				payload: {
+					message: error instanceof Error ? error.message : String(error),
+				},
+			});
 		}
 	}
+
+	public async startOrEndDialerSession(authContext: AuthContext, startOrEnd: 'start' | 'end' , extensionId: string): Promise<void> {
+
+		if (!authContext.tenantId) {
+			throw new ForbiddenException('Tenant setup required');
+		}
+
+		await this.validateExtensionForTenant(extensionId, authContext.tenantId);
+
+		if (startOrEnd === 'start') {
+			return this.startDialerSession(authContext, extensionId);
+		}
+
+		return this.endDialerSession(authContext, extensionId);
+
+	}
+
+	private async startDialerSession(authContext: AuthContext, extensionId: string): Promise<void> {
+		// trigger call to this extension
+	}
+
+	private async endDialerSession(authContext: AuthContext, extensionId: string): Promise<void> {
+		// hangup the session call if it exists
+	}
+
 }

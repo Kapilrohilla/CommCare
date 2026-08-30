@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Req, UsePipes } from "@nestjs/common";
 import { CallsService } from "../services/calls.service";
-import { CallOriginateDto } from "../dto/calls.dto";
+import { CallOriginateDto, DialSessionDto } from "../dto/calls.dto";
 import { ResponseService } from "src/shared/utils/services/response.service";
 import type { AuthContext } from "src/shared/types/auth.types";
 import { CurrentAuth } from "src/shared/decorators/current-auth.decorator";
@@ -32,6 +32,15 @@ export class CallsController {
 	async originateClick2Call(@CurrentAuth() auth: AuthContext, @Body() callOriginateDto: CallOriginateDto) {
 		const { fromNumber, toNumber, type } = callOriginateDto;
 		const data = await this.callsService.originateClick2Call(auth, fromNumber, toNumber, type);
+		return ResponseService.success('success', data);
+	}
+
+	@Post('/dialer/session')
+	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
+	@UsePipes(new ZodValidationPipe(DialSessionDto))
+	async dialSession(@CurrentAuth() auth: AuthContext, @Body() dialSessionDto: DialSessionDto) {
+		const { startOrEnd, extensionId } = dialSessionDto;
+		const data = await this.callsService.startOrEndDialerSession(auth, startOrEnd, extensionId);
 		return ResponseService.success('success', data);
 	}
 }
