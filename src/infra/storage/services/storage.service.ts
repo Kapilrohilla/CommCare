@@ -36,7 +36,7 @@ export class StorageService {
 		return this.defaultVendor().delete(input);
 	}
 
-	async exists(input: ExistsDto): Promise<boolean> {
+	async exists(input: ExistsDto): Promise<{exists: boolean}> {
 		return this.defaultVendor().exists(input);
 	}
 }

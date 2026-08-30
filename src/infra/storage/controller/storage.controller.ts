@@ -35,7 +35,6 @@ export class StorageController {
 
 	@Get('exists')
 	async exists(@Query(new ZodValidationPipe(ExistsDto)) query: ExistsDto): Promise<{ exists: boolean }> {
-		const exists = await this.storageService.exists(query);
-		return { exists };
+		return this.storageService.exists(query);
 	}
 }

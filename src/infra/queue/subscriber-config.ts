@@ -5,6 +5,7 @@ import { HealthCheckService } from '../../modules/healthCheck/services/healthChe
 import { TenancyExtensionService } from 'src/modules/tenancy/services/tenancy-extension.service';
 import { CallsService } from 'src/modules/calls/services/calls.service';
 import { WebhookDispatcherService } from 'src/modules/webhook/services/webhook-dispatch.service';
+import { SystemRecordingService } from 'src/modules/systemRecording/services/system-recording.service';
 /**
  * Subscriber Configuration
  * Centralized configuration for event subscribers
@@ -117,6 +118,18 @@ export const SUBSCRIBER_CONFIGS: SubscriberConfig[] = [
     subscriberServiceName: 'webhookDispatcherService',
     concurrency: 10,
     limiter: { max: 60, duration: 60_000 },
+  },
+  {
+    eventName: Events.systemRecordingProcessUpload,
+    serviceClass: SystemRecordingService,
+    subscriberServiceName: 'systemRecordingService',
+    concurrency: 3,
+  },
+  {
+    eventName: Events.systemRecordingGenerateTts,
+    serviceClass: SystemRecordingService,
+    subscriberServiceName: 'systemRecordingService',
+    concurrency: 3,
   },
 ];
 

@@ -78,7 +78,7 @@ export class S3Service  {
 		);
 	}
 
-	async exists(input: ExistsDto): Promise<boolean> {
+	async exists(input: ExistsDto): Promise<{exists: boolean}> {
 		this.ensureBucketConfigured();
 
 		try {
@@ -88,10 +88,10 @@ export class S3Service  {
 					Key: input.path,
 				}),
 			);
-			return true;
+			return {exists: true};
 		} catch (error) {
 			if (this.isNotFoundError(error)) {
-				return false;
+				return {exists: false};
 			}
 			throw error;
 		}

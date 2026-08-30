@@ -14,4 +14,6 @@ export const Events = {
 	ariCallEvent: 'ariCallEvent',
 	webhookFanout: 'webhookFanout',
 	webhookDelivery: 'webhookDelivery',
+	systemRecordingProcessUpload: 'systemRecordingProcessUpload',
+	systemRecordingGenerateTts: 'systemRecordingGenerateTts',
 };
