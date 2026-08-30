@@ -15,6 +15,8 @@ import { SubscriberModule } from './infra/queue/subscriber.module';
 import { IamModule } from './modules/iam/iam.module';
 import { WebhookModule } from './modules/webhook/webhook.module';
 import { SystemRecordingModule } from './modules/systemRecording/system-recording.module';
+import { IvrModule } from './modules/ivr/ivr.module';
+import { RoutingModule } from './modules/routing/routing.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { SystemRecordingModule } from './modules/systemRecording/system-recordin
     IamModule,
     WebhookModule,
     SystemRecordingModule,
+    IvrModule,
+    RoutingModule,
   ],
 })
 export class AppModule {}
