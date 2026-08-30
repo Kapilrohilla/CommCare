@@ -12,4 +12,6 @@ export const Events = {
 	bulkExtensionAssignment: 'bulkExtensionAssignment',
 	extensionPoolMaintenance: 'extensionPoolMaintenance',
 	ariCallEvent: 'ariCallEvent',
+	webhookFanout: 'webhookFanout',
+	webhookDelivery: 'webhookDelivery',
 };

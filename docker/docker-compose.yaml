@@ -33,6 +33,9 @@ services:
       READER_DB_HOST: db
       REDIS_HOST: redis
       KAFKA_BROKERS: kafka:9092
+      KAFKA_SUBSCRIBER: ALL
+      BULLMQ_SUBSCRIBER: ALL
+      BULLMQ_CONSUMERS_ENABLED: 'true'
       ARI_CONSUMER_ENABLED: 'false'
       TRACING_ENABLED: 'true'
       OTEL_SERVICE_NAME: commcare
@@ -74,7 +77,7 @@ services:
     env_file:
       - ../.env
     environment:
-      WEBHOOK_URL: http://app:3000/pbx/asterisk/cdr/webhook
+      WEBHOOK_URL: http://app:3000/calls/cdr/webhook
     depends_on:
       app:
         condition: service_healthy

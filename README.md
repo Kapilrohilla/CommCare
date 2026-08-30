@@ -1,92 +1,234 @@
 # CommCare
 
-CommCare is a backend service layer that sits **above Asterisk**. It exposes APIs and business logic for multi-tenant communication workflows while Asterisk handles the core telephony stack (SIP, media, dialplan, and call routing).
+CommCare is a multi-tenant backend that sits **above Asterisk / FreePBX**. It exposes authenticated REST APIs, call orchestration (click2call), extension management, outbound webhooks, and async event processing — while Asterisk handles SIP, media, and telephony primitives.
 
-CommCare does not replace Asterisk. It orchestrates, extends, and integrates with it — providing tenancy, storage, health monitoring, and higher-level PBX services that applications and operators can consume without talking to Asterisk directly.
+CommCare does not replace Asterisk. It orchestrates and integrates with it through **ARI**, **AMI/CDR**, and **FreePBX APIs**, storing application state in PostgreSQL and processing telephony events through **Kafka → BullMQ** workers.
 
 ## Architecture
 
 ```mermaid
 flowchart TB
     Clients[Clients / Admin UI / Integrations]
-    CommCare[CommCare API Layer]
-    Asterisk[Asterisk PBX]
+    API[CommCare API]
+    ARIConsumer[ARI Consumer]
+    Workers[BullMQ Workers]
+    Asterisk[Asterisk / FreePBX]
     PG[(PostgreSQL)]
-    S3[(Object Storage)]
+    Redis[(Redis)]
+    Kafka[(Kafka)]
+    S3[(S3)]
 
-    Clients --> CommCare
-    CommCare --> Asterisk
-    CommCare --> PG
-    CommCare --> S3
+    Clients --> API
+    API --> Asterisk
+    ARIConsumer -->|WebSocket Stasis| Asterisk
+    ARIConsumer --> Kafka
+    API --> Kafka
+    Kafka --> Workers
+    Workers --> PG
+    API --> PG
+    API --> Redis
+    Workers --> Redis
+    API --> S3
+    Workers -->|Webhook HTTP| Integrations[Customer Webhooks]
 ```
 
-| Layer | Responsibility |
-|-------|----------------|
-| **CommCare** | REST APIs, tenancy, call orchestration, file storage, health checks |
-| **Asterisk** | SIP trunks, extensions, IVR, queues, media, dialplan execution |
-| **PostgreSQL** | Application data with reader/writer connections |
-| **S3** | Recordings, attachments, and other object storage |
+
+
+
+| Layer            | Responsibility                                                                   |
+| ---------------- | -------------------------------------------------------------------------------- |
+| **CommCare API** | Auth, tenancy, extensions, click2call, webhook registry, CDR ingest              |
+| **ARI Consumer** | Single leader WebSocket to Asterisk Stasis app (`pbx`), publishes ARI events     |
+| **Workers**      | Kafka → BullMQ handlers: ARI call flow, webhook fanout/delivery, CDR, extensions |
+| **Asterisk**     | SIP/PJSIP, channels, bridges, media                                              |
+| **PostgreSQL**   | Calls, legs, events, tenants, users, extensions, webhooks                        |
+| **Redis**        | Cache, distributed locks (ARI leader election), BullMQ                           |
+| **Kafka**        | Durable event bus between producers and workers                                  |
+| **S3**           | Recordings, attachments (presigned URLs)                                         |
+
+
+
 
 ## Tech stack
 
 - [NestJS](https://nestjs.com) — application framework
 - [TypeORM](https://typeorm.io) — PostgreSQL ORM (reader/writer)
-- [Zod](https://zod.dev) — environment validation
-- [AWS S3](https://aws.amazon.com/s3/) — object storage (presigned URLs)
-- [Prometheus](https://prometheus.io) + [Grafana](https://grafana.com) + [Loki](https://grafana.com/oss/loki/) — metrics & logs
-- [Asterisk](https://www.asterisk.org/) — underlying PBX (external)
+- [Zod](https://zod.dev) — config and request validation
+- [KafkaJS](https://kafka.js.org) + [BullMQ](https://docs.bullmq.io) — async events (Kafka → BullMQ → handlers)
+- [Redis](https://redis.io) — locks, queues, extension pool cache
+- [AWS S3](https://aws.amazon.com/s3/) — object storage
+- [Prometheus](https://prometheus.io) + [Grafana](https://grafana.com) + [OpenTelemetry](https://opentelemetry.io) — metrics & tracing
+- [Asterisk ARI](https://docs.asterisk.org/Configuration/Interfaces/Asterisk-REST-Interface-ARI/) — call control
+- [FreePBX GraphQL](https://wiki.freepbx.org/) — extension provisioning
+
+
 
 ## Project structure
 
 ```
 src/
-├── config/              # Validated environment config
-├── constants/           # App-level constants
+├── config/                 # Validated environment (Zod)
+├── constants/              # App & event constants
 ├── infra/
-│   ├── database/        # PostgreSQL + TypeORM (reader/writer)
-│   ├── observability/   # Prometheus metrics (/metrics)
-│   └── storage/         # S3 storage abstraction
+│   ├── bullmq/             # BullMQ producers, consumers, Bull Board UI
+│   ├── database/           # PostgreSQL + TypeORM (reader/writer)
+│   ├── kafka/              # Kafka producers & consumers
+│   ├── observability/      # Prometheus, OpenTelemetry tracing
+│   ├── queue/              # EventProducer, subscriber registry
+│   ├── redis/              # Redis + Redlock
+│   └── storage/            # S3 presigned URL API
 ├── modules/
-│   ├── healthCheck/     # Liveness & readiness probes
-│   ├── pbx/             # PBX orchestration + Asterisk integration
-│   └── tenancy/         # Multi-tenant management
-└── shared/              # Pipes, response helpers
+│   ├── calls/              # Click2call, call/legs/events persistence
+│   ├── healthCheck/        # Liveness, readiness, Asterisk ping
+│   ├── iam/                # Auth, users, sessions, OTP, visitors
+│   ├── pbx/                # Asterisk ARI, FreePBX, extensions, ARI consumer
+│   ├── tenancy/            # Tenants & extension assignment
+│   └── webhook/            # Webhook registry, fanout, delivery, logs
+├── shared/                 # Guards, pipes, filters, request client
+├── main.ts                 # API entrypoint
+└── ari-consumer.main.ts    # Dedicated ARI WebSocket process
 ```
 
-## Modules
 
-### PBX
-Wraps Asterisk operations and exposes higher-level PBX APIs. The `AsteriskService` is the integration point with the Asterisk server (AMI, ARI, or other interfaces as implemented).
 
-### Tenancy
-Manages tenants in a multi-tenant deployment. Each tenant can map to isolated PBX configuration, users, and resources on Asterisk.
+## Modules & services
 
-### Health check
-Kubernetes-friendly endpoints:
 
-| Endpoint | Purpose |
-|----------|---------|
+
+### IAM (`/auth`, `/users`)
+
+Identity and access for multi-tenant users.
+
+- JWT access/refresh tokens, sessions, visitors
+- OTP-based auth flows
+- Auth event audit trail
+
+
+
+### Tenancy (`/tenancy`, `/tenancy/extension`)
+
+- Tenant CRUD and configuration
+- Bulk extension assignment to tenants/users
+- Extension pool maintenance jobs
+
+
+
+### PBX (`/pbx`, FreePBX integration)
+
+Low-level telephony integration (not the primary app API for calls).
+
+
+| Service              | Role                                                                               |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| `AsteriskService`    | ARI REST: originate, bridge, hangup, health ping                                   |
+| `AriConsumerService` | WebSocket to Stasis app `pbx`, leader election via Redis, publishes `ariCallEvent` |
+| `ExtensionService`   | Extension pool, FreePBX create, tenant assignment                                  |
+| `FreePbxService`     | FreePBX GraphQL API client                                                         |
+| `AsteriskCDRService` | CDR event worker (Kafka `cdrEvent`)                                                |
+
+
+**Docker:** `commcare-ari-consumer` runs the ARI WebSocket; the API sets `ARI_CONSUMER_ENABLED=false`.
+
+### Calls (`/calls`)
+
+Application-level call control and click2call workflow.
+
+
+| Endpoint                     | Description                                                     |
+| ---------------------------- | --------------------------------------------------------------- |
+| `POST /calls/click-to-call`  | Authenticated click2call (agent → callee, internal or external) |
+| `POST /calls/cdr/webhook`    | Asterisk CDR batch ingest → Kafka `cdrEvent`                    |
+| `POST /calls/dialer/session` | Dialer session start/end (stub)                                 |
+
+
+**Data model:** `calls`, `call_legs`, `call_events`
+
+**Click2call flow:**
+
+```text
+API originate agent leg → ARI Stasis → Kafka ariCallEvent → CallsService
+  → agent answers → originate callee → bridge → connected
+  → hangup / no-answer → disposition + webhooks
+```
+
+**Call statuses:** `initiated`, `originating`, `ringing`, `answered`, `completed`, `no_answer`, `busy`, `failed`, `cancelled`, `rejected`
+
+**Disposition logic:** `src/modules/calls/utils/ari-hangup.util.ts` maps ARI hangup causes and leg answer state to call/leg status.
+
+### Webhooks (`/webhook-registry`, `/webhook-logs`)
+
+Tenant-configurable HTTP callbacks for telephony events.
+
+**Click2call trigger events:**
+
+
+| Trigger                         | When                             |
+| ------------------------------- | -------------------------------- |
+| `Click2Call.CallerConnected`    | Agent leg answered               |
+| `Click2Call.CallerNoAnswer`     | Agent never answered             |
+| `Click2Call.CallerDisconnected` | Agent leg ended (non–no-answer)  |
+| `Click2Call.CalleeConnected`    | Both legs bridged                |
+| `Click2Call.CalleeNoAnswer`     | Callee never answered            |
+| `Click2Call.CalleeDisconnected` | Callee leg ended (non–no-answer) |
+
+
+**Pipeline:** lifecycle event → Kafka `webhookFanout` → `WebhookDispatcherService` → per-registry Kafka `webhookDelivery` → HTTP POST + `webhook_logs`.
+
+### Health check (`/healthCheck`)
+
+
+| Endpoint                  | Purpose                                |
+| ------------------------- | -------------------------------------- |
 | `GET /healthCheck/health` | Overall status with dependency details |
-| `GET /healthCheck/livez` | Liveness — process is running |
-| `GET /healthCheck/readyz` | Readiness — DB connections are healthy |
+| `GET /healthCheck/livez`  | Liveness                               |
+| `GET /healthCheck/readyz` | Readiness (DB)                         |
+
+
+
 
 ### Storage
-S3-backed presigned URL API for uploads, downloads, deletes, and existence checks (e.g. call recordings, voicemails, documents).
 
-### Observability
-- **`GET /metrics`** — Prometheus metrics (HTTP latency, request counts, Node.js runtime)
-- **Prometheus** — scrapes app, node-exporter, postgres-exporter
-- **Grafana** — dashboards (Prometheus + Loki datasources pre-provisioned)
-- **Loki + Promtail** — container log aggregation (sidecar pattern)
+S3-backed presigned URL API for uploads, downloads, deletes, and existence checks.
+
+## Event pipeline
+
+All async handlers are registered in `src/infra/queue/subscriber-config.ts`.
+
+
+| Kafka event                | Handler                    | Purpose                                  |
+| -------------------------- | -------------------------- | ---------------------------------------- |
+| `ariCallEvent`             | `CallsService`             | Click2call Stasis/state/destroy handling |
+| `webhookFanout`            | `WebhookDispatcherService` | Resolve registries, enqueue deliveries   |
+| `webhookDelivery`          | `WebhookDispatcherService` | HTTP delivery + logging                  |
+| `cdrEvent`                 | `AsteriskCDRService`       | Post-call CDR processing                 |
+| `extensionCreate`          | `ExtensionService`         | Extension provisioning jobs              |
+| `bulkExtensionAssignment`  | `TenancyExtensionService`  | Tenant extension bulk assign             |
+| `extensionPoolMaintenance` | `ExtensionService`         | Pool top-up                              |
+| `healthCheckPerformed`     | `HealthCheckService`       | Async health checks                      |
+
+
+**Enable workers** on the process that should consume jobs:
+
+```env
+KAFKA_SUBSCRIBER=ALL
+BULLMQ_SUBSCRIBER=ALL
+BULLMQ_CONSUMERS_ENABLED=true
+```
+
+Docker `commcare-app` sets these automatically. Local dev often uses `NONE` until you need async processing.
 
 ## Getting started
+
+
 
 ### Prerequisites
 
 - Node.js 20+
 - pnpm
 - Docker & Docker Compose
-- Asterisk server (separate deployment)
+- Asterisk with ARI enabled (Stasis app: `pbx`) and/or FreePBX
+
+
 
 ### Install
 
@@ -94,9 +236,9 @@ S3-backed presigned URL API for uploads, downloads, deletes, and existence check
 pnpm install
 ```
 
-### Environment
 
-Copy the sample env file and adjust values:
+
+### Environment
 
 ```bash
 cp env-sample .env
@@ -104,82 +246,98 @@ cp env-sample .env
 
 Key variables:
 
-| Variable | Description |
-|----------|-------------|
-| `HTTP_PORT` | API server port (default `3000`) |
-| `ENV` | `development` \| `production` \| `test` |
-| `WRITER_DB_*` | Primary PostgreSQL connection |
-| `READER_DB_*` | Read replica PostgreSQL connection |
-| `AWS_*` | S3 credentials and bucket for storage |
-| `METRICS_*` | Prometheus `/metrics` endpoint config |
-| `SERVICE_NAME` | Service name for observability labels |
 
-Environment is validated at startup via `src/config/env.config.ts`. The app exits with clear errors if required values are missing.
+| Variable                                 | Description                                                 |
+| ---------------------------------------- | ----------------------------------------------------------- |
+| `HTTP_PORT`                              | API port (default `3000`)                                   |
+| `WRITER_DB_*` / `READER_DB_*`            | PostgreSQL connections                                      |
+| `REDIS_HOST`                             | Redis for BullMQ + ARI leader lock                          |
+| `KAFKA_BROKERS`                          | Kafka bootstrap servers                                     |
+| `KAFKA_SUBSCRIBER` / `BULLMQ_SUBSCRIBER` | `ALL` to run event workers                                  |
+| `ARI_HOST`, `ARI_USER`, `ARI_PASSWORD`   | Asterisk ARI REST                                           |
+| `ARI_CONSUMER_ENABLED`                   | `true` only for in-process ARI consumer (local dev)         |
+| `ARI_OUTBOUND_ENDPOINT_TEMPLATE`         | External dial template, e.g. `Local/{number}@from-internal` |
+| `FREEPBX_*`                              | FreePBX OAuth + GraphQL for extension sync                  |
+| `JWT_SECRET`                             | Auth signing secret (min 32 chars)                          |
+| `WEBHOOK_URL`                            | CDR worker target (`http://host:3000/calls/cdr/webhook`)    |
 
-### Docker — infrastructure (start once)
 
-Long-lived services: PostgreSQL, Redis, Kafka, Prometheus, Grafana, Loki, Tempo, etc.
-Do **not** restart this on every app deploy.
+Environment is validated at startup via `src/config/env.config.ts`.
+
+### Docker — infrastructure
 
 ```bash
 docker compose -f docker/docker-compose.infra.yaml up -d
 ```
 
-Use these in `.env` when running the app on the **host** (`pnpm run start:dev`):
+Host `.env` when running API locally:
 
-| Variable | Value |
-|----------|-------|
-| `WRITER_DB_HOST` / `READER_DB_HOST` | `localhost` |
-| `REDIS_HOST` | `localhost` |
-| `KAFKA_BROKERS` | `localhost:9094` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4318` |
 
-### Docker — application (deploy / restart)
+| Variable                            | Value            |
+| ----------------------------------- | ---------------- |
+| `WRITER_DB_HOST` / `READER_DB_HOST` | `localhost`      |
+| `REDIS_HOST`                        | `localhost`      |
+| `KAFKA_BROKERS`                     | `localhost:9094` |
 
-Rebuild and restart **only** the CommCare API and workers. Requires infra already running.
+
+
+
+### Docker — application
 
 ```bash
 docker compose -f docker/docker-compose.yaml up -d --build
 ```
 
-Or use `./scripts/run.sh` for a clean rebuild.
 
-| Service | URL |
-|---------|-----|
-| CommCare API | http://localhost:3000 |
-| Metrics | http://localhost:3000/metrics |
-| Prometheus | http://localhost:9090 |
-| Grafana | http://localhost:3001 (admin / admin) |
-| Loki | http://localhost:3100 |
-| Redis | localhost:6379 |
-| Kafka (host) | localhost:9094 |
+| Service                        | Role                            |
+| ------------------------------ | ------------------------------- |
+| `commcare-app`                 | REST API + Kafka/BullMQ workers |
+| `commcare-ari-consumer`        | ARI WebSocket → Kafka           |
+| `commcare-asterisk-cdr-worker` | AMI listener → CDR webhook      |
 
-**Grafana dashboards to import:** Node Exporter Full (`1860`), PostgreSQL Database (`9628`).
 
-Logs in Grafana → Explore → Loki: `{service="app"}`
 
-### Run
+| URL                                                                      | Service                 |
+| ------------------------------------------------------------------------ | ----------------------- |
+| [http://localhost:3000](http://localhost:3000)                           | CommCare API            |
+| [http://localhost:3000/metrics](http://localhost:3000/metrics)           | Prometheus metrics      |
+| [http://localhost:3000/admin/queues](http://localhost:3000/admin/queues) | Bull Board (if enabled) |
+
+
+
+
+### Local development
 
 ```bash
-# development (watch mode)
+# API + workers (set KAFKA_SUBSCRIBER/BULLMQ_SUBSCRIBER=ALL in .env for click2call events)
 pnpm run start:dev
 
-# production build
-pnpm run build
-pnpm run start:prod
+# Dedicated ARI consumer (separate terminal)
+pnpm run start:ari-consumer:dev
 ```
 
-API listens on `http://localhost:3000` (or your configured `HTTP_PORT`).
+
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `pnpm run start:dev` | Start with hot reload |
-| `pnpm run build` | Compile TypeScript |
-| `pnpm run lint` | ESLint |
-| `pnpm run test` | Unit tests |
-| `pnpm run test:e2e` | End-to-end tests |
+
+| Command                           | Description                 |
+| --------------------------------- | --------------------------- |
+| `pnpm run start:dev`              | API with hot reload         |
+| `pnpm run start:ari-consumer:dev` | ARI WebSocket consumer only |
+| `pnpm run build`                  | Compile TypeScript          |
+| `pnpm run test`                   | Unit tests                  |
+| `pnpm run test:e2e`               | End-to-end tests            |
+| `pnpm run lint`                   | ESLint                      |
+
+
+
+
+## Related docs
+
+- `[src/infra/database/README.md](./src/infra/database/README.md)` — database setup notes
+
+
 
 ## License
 

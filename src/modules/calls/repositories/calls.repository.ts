@@ -60,4 +60,21 @@ export class CallsRepository {
 			.orderBy('call.createdAt', 'DESC')
 			.getOne();
 	}
+
+	async findClick2CallForChannel(channelId: string): Promise<CallEntity | null> {
+		const active = await this.findActiveClick2CallByChannel(channelId);
+		if (active) {
+			return active;
+		}
+
+		return this.readerRepository
+			.createQueryBuilder('call')
+			.where('call.workflow = :workflow', { workflow: 'click_to_call' })
+			.andWhere(
+				'(call.callerChannelId = :channelId OR call.calleeChannelId = :channelId)',
+				{ channelId },
+			)
+			.orderBy('call.createdAt', 'DESC')
+			.getOne();
+	}
 }

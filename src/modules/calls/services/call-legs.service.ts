@@ -70,6 +70,33 @@ export class CallLegsService {
 		return this.callLegsRepository.save(leg);
 	}
 
+	async finalizeLegEnd(
+		channelId: string,
+		status: CallLegStatus,
+		endedAt: Date,
+		hangupCause: number | null = null,
+		hangupCauseText: string | null = null,
+	): Promise<CallLegEntity | null> {
+		const leg = await this.callLegsRepository.findByUniqueId(channelId);
+		if (!leg) {
+			return null;
+		}
+
+		leg.status = status;
+		leg.endedAt = endedAt;
+		leg.hangupCause = hangupCause;
+		leg.hangupCauseText = hangupCauseText;
+
+		if (leg.startedAt) {
+			leg.duration = Math.max(
+				0,
+				Math.floor((endedAt.getTime() - leg.startedAt.getTime()) / 1000),
+			);
+		}
+
+		return this.callLegsRepository.save(leg);
+	}
+
 	async updateLegStatus(
 		channelId: string,
 		status: CallLegStatus,

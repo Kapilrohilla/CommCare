@@ -40,11 +40,10 @@ KAFKA_BROKERS=localhost:9094
 KAFKA_CLIENT_ID=commcare
 KAFKA_GROUP_ID=commcare-group
 KAFKA_SUBSCRIBER=NONE
-
-# BullMQ (requires Redis)
+# Set ALL (or DEFAULT) on the API/worker process that runs BullMQ job handlers
+BULLMQ_SUBSCRIBER=NONE
 BULLMQ_SCHEDULER_ENABLED=false
 BULLMQ_CONSUMERS_ENABLED=false
-BULLMQ_SUBSCRIBER=NONE
 BULLMQ_WORKER_CONCURRENCY=5
 BULLMQ_UI_ENABLED=true
 BULLMQ_UI_PATH=/admin/queues
@@ -59,7 +58,7 @@ AMI_SECRET=your_ami_secret
 JWT_SECRET=dev-jwt-secret-change-in-production-min-32-chars
 
 # Local dev only — Docker Compose overrides this for asterisk-cdr-worker
-WEBHOOK_URL=http://localhost:3000/pbx/asterisk/cdr/webhook
+WEBHOOK_URL=http://localhost:3000/calls/cdr/webhook
 WEBHOOK_TIMEOUT=10000
 WEBHOOK_RETRIES=3
 
@@ -72,6 +71,8 @@ ARI_WS_URL=
 ARI_CONSUMER_ENABLED=false
 ARI_LEADER_LOCK_TTL_SECONDS=10
 ARI_LEADER_LOCK_RENEW_INTERVAL_MS=5000
+# External click2call dial string — use {number} placeholder (FreePBX: Local/{number}@from-internal)
+ARI_OUTBOUND_ENDPOINT_TEMPLATE=Local/{number}@from-internal
 
 # FreePbx
 FREEPBX_BASE_URL=freepbx base url

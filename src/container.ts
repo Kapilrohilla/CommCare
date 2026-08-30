@@ -13,6 +13,7 @@ import { KafkaModule } from './infra/kafka/kafka.module';
 import { QueueModule } from './infra/queue/queue.module';
 import { SubscriberModule } from './infra/queue/subscriber.module';
 import { IamModule } from './modules/iam/iam.module';
+import { WebhookModule } from './modules/webhook/webhook.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { IamModule } from './modules/iam/iam.module';
     StorageModule,
     CallsModule,
     IamModule,
+    WebhookModule,
   ],
 })
 export class AppModule {}

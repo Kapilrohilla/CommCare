@@ -23,15 +23,24 @@ import { AuthContext } from 'src/shared/types/auth.types';
 import { AsteriskCdrWebhookPayload } from 'src/modules/pbx/dto/asterisk-cdr.dto';
 import { EventProducer } from 'src/infra/queue/services/event-producer.service';
 import { Events } from 'src/constants/event.constant';
+import { WebhookRegistryEventTrigger } from 'src/modules/webhook/constants/webhook.constant';
+import { Click2CallWebhookData } from 'src/modules/webhook/types/webhook-dispatch.types';
 import { AsteriskService } from 'src/modules/pbx/services/asterisk.service';
 import { ExtensionService } from 'src/modules/pbx/services/extension.service';
 import { AriCallEventPayload } from 'src/modules/pbx/types/ari-event.types';
 import { Extension } from 'src/modules/pbx/entity/extension.entity';
+import {
+	isNoAnswerCallStatus,
+	resolveCallEndStatus,
+	resolveLegEndStatus,
+} from '../utils/ari-hangup.util';
 
 interface RawAriEventBody {
 	type?: string;
 	timestamp?: string;
 	args?: string[];
+	cause?: number;
+	cause_txt?: string;
 	channel?: {
 		id?: string;
 		name?: string;
@@ -492,6 +501,11 @@ export class CallsService {
 		}
 
 		if (channelId === call.callerChannelId && !call.calleeChannelId) {
+			await this.emitClick2CallWebhook(
+				call,
+				WebhookRegistryEventTrigger.Click2CallCallerConnected,
+				{ channelId },
+			);
 			await this.originateCalleeLeg(call);
 			return;
 		}
@@ -509,32 +523,98 @@ export class CallsService {
 			return;
 		}
 
-		const call = await this.findClick2CallByChannel(channelId);
-		if (!call || call.endedAt) {
+		const call = await this.callsRepository.findClick2CallForChannel(channelId);
+		if (!call) {
+			return;
+		}
+
+		const isCallerLeg = channelId === call.callerChannelId;
+		const isCalleeLeg = channelId === call.calleeChannelId;
+		if (!isCallerLeg && !isCalleeLeg) {
 			return;
 		}
 
 		const eventTime = this.parseAriEventTime(event);
-		const wasAnswered = Boolean(call.answeredAt);
-		const legStatus = wasAnswered ? CallLegStatus.COMPLETED : CallLegStatus.CANCELLED;
-		const leg = await this.callLegsService.updateLegStatus(channelId, legStatus, {
-			endedAt: eventTime,
+		const hangupCause = typeof event.cause === 'number' ? event.cause : null;
+		const hangupCauseText =
+			typeof event.cause_txt === 'string' ? event.cause_txt : null;
+		const callAlreadyEnded = Boolean(call.endedAt);
+		const wasBridged = Boolean(call.bridgeId);
+
+		const existingLeg = await this.callLegsService.getLegByUniqueId(channelId);
+		const legWasAnswered = Boolean(existingLeg?.answeredAt);
+
+		const legStatus = resolveLegEndStatus({
+			legWasAnswered,
+			wasBridged,
+			hangupCause,
 		});
+
+		const leg = await this.callLegsService.finalizeLegEnd(
+			channelId,
+			legStatus,
+			eventTime,
+			hangupCause,
+			hangupCauseText,
+		);
 
 		await this.recordClick2CallEvent(call.id, 'ChannelDestroyed', {
 			eventTime,
 			channelId,
 			channelName: event.channel?.name ?? null,
 			callLegId: leg?.id ?? null,
-			payload: event as Record<string, unknown>,
+			payload: {
+				...(event as Record<string, unknown>),
+				legStatus,
+				legRole: isCallerLeg ? 'agent' : 'callee',
+			},
 		});
 
-		const otherChannelId =
-			channelId === call.callerChannelId
-				? call.calleeChannelId
-				: call.callerChannelId;
+		if (callAlreadyEnded) {
+			return;
+		}
 
-		if (otherChannelId) {
+		const callStatus = resolveCallEndStatus({
+			isCallerLeg,
+			isCalleeLeg,
+			legWasAnswered,
+			wasBridged,
+			hangupCause,
+		});
+
+		const legRole: Click2CallLegRole = isCallerLeg ? 'agent' : 'callee';
+		const webhookExtra = {
+			channelId,
+			legRole,
+			hangupCause,
+			hangupCauseText,
+			occurredAt: eventTime.toISOString(),
+		};
+
+		if (isNoAnswerCallStatus(callStatus)) {
+			await this.emitClick2CallWebhook(
+				call,
+				isCallerLeg
+					? WebhookRegistryEventTrigger.Click2CallCallerNoAnswer
+					: WebhookRegistryEventTrigger.Click2CallCalleeNoAnswer,
+				{ ...webhookExtra, status: callStatus },
+			);
+		} else {
+			const disconnectTrigger = isCallerLeg
+				? WebhookRegistryEventTrigger.Click2CallCallerDisconnected
+				: WebhookRegistryEventTrigger.Click2CallCalleeDisconnected;
+
+			await this.emitClick2CallWebhook(call, disconnectTrigger, {
+				...webhookExtra,
+				status: callStatus,
+			});
+		}
+
+		const otherChannelId = isCallerLeg
+			? call.calleeChannelId
+			: call.callerChannelId;
+
+		if (otherChannelId && !wasBridged) {
 			try {
 				await this.asteriskService.hangupChannel(otherChannelId);
 			} catch (error) {
@@ -544,7 +624,7 @@ export class CallsService {
 			}
 		}
 
-		call.status = wasAnswered ? CallStatus.COMPLETED : CallStatus.CANCELLED;
+		call.status = callStatus;
 		call.endedAt = eventTime;
 		if (call.startedAt) {
 			call.duration = Math.max(
@@ -554,6 +634,10 @@ export class CallsService {
 		}
 
 		await this.callsRepository.updateCall(call);
+
+		this.logger.log(
+			`Click2call ${call.id} ended: status=${callStatus} leg=${legRole} cause=${hangupCause ?? 'n/a'}`,
+		);
 	}
 
 	private async findClick2CallByChannel(
@@ -690,6 +774,15 @@ export class CallsService {
 					calleeChannelId: call.calleeChannelId,
 				},
 			});
+
+			await this.emitClick2CallWebhook(
+				call,
+				WebhookRegistryEventTrigger.Click2CallCalleeConnected,
+				{
+					bridgeId: bridge.id,
+					channelId: call.calleeChannelId,
+				},
+			);
 		} catch (error) {
 			this.logger.error(
 				`Failed to bridge call ${call.id}: ${error instanceof Error ? error.message : error}`,
@@ -727,6 +820,54 @@ export class CallsService {
 
 	private async endDialerSession(authContext: AuthContext, extensionId: string): Promise<void> {
 		// hangup the session call if it exists
+	}
+
+	private buildClick2CallWebhookData(
+		call: CallEntity,
+		extra: Partial<Click2CallWebhookData> = {},
+	): Click2CallWebhookData {
+		return {
+			callId: call.id,
+			callerNumber: call.callerNumber,
+			callToNumber: call.callToNumber,
+			status: extra.status ?? call.status,
+			direction: call.direction,
+			workflow: call.workflow,
+			channelId: extra.channelId ?? null,
+			bridgeId: extra.bridgeId ?? call.bridgeId,
+			legRole: extra.legRole ?? null,
+			hangupCause: extra.hangupCause ?? null,
+			hangupCauseText: extra.hangupCauseText ?? null,
+			occurredAt: extra.occurredAt ?? new Date().toISOString(),
+		};
+	}
+
+	private async emitClick2CallWebhook(
+		call: CallEntity,
+		eventTrigger: WebhookRegistryEventTrigger,
+		extra: Partial<Click2CallWebhookData> = {},
+	): Promise<void> {
+		if (!call.tenantId) {
+			return;
+		}
+
+		const data = this.buildClick2CallWebhookData(call, extra);
+
+		await this.eventProducer.publish(
+			Events.webhookFanout,
+			{
+				eventTrigger,
+				tenantId: call.tenantId,
+				data,
+			},
+			{
+				partitionKey: call.id,
+			},
+		);
+
+		this.logger.log(
+			`Enqueued webhook fanout ${eventTrigger} for call ${call.id}`,
+		);
 	}
 
 }

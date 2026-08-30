@@ -10,7 +10,7 @@ import { ZodValidationPipe } from "src/shared/pipes/zodValidationPipe";
 import { AsteriskCdrWebhookPayload } from "src/modules/pbx/dto/asterisk-cdr.dto";
 
 /**
- * TODO: will complete it later as first service require to connect with PBX server
+ * Call control and click2call orchestration.
  */
 @Controller('calls')
 export class CallsController {
