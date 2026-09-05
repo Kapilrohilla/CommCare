@@ -63,3 +63,4 @@ docker/asterisk/.env
 
 # AI config files
 openspec
+.cursor
