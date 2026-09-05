@@ -4,6 +4,7 @@ import { Events } from '../../constants/event.constant';
 import { HealthCheckService } from '../../modules/healthCheck/services/healthCheck.service';
 import { TenancyExtensionService } from 'src/modules/tenancy/services/tenancy-extension.service';
 import { CallsService } from 'src/modules/calls/services/calls.service';
+import { CallWorkflowRouterService } from 'src/modules/calls/services/call-workflow-router.service';
 import { WebhookDispatcherService } from 'src/modules/webhook/services/webhook-dispatch.service';
 import { SystemRecordingService } from 'src/modules/systemRecording/services/system-recording.service';
 /**
@@ -102,8 +103,8 @@ export const SUBSCRIBER_CONFIGS: SubscriberConfig[] = [
   },
   {
     eventName: Events.ariCallEvent,
-    serviceClass:CallsService,
-    subscriberServiceName: 'callsService',
+    serviceClass: CallWorkflowRouterService,
+    subscriberServiceName: 'callWorkflowRouterService',
     concurrency: 5,
   },
   {

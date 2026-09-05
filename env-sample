@@ -63,6 +63,7 @@ WEBHOOK_TIMEOUT=10000
 WEBHOOK_RETRIES=3
 
 # Asterisk ARI (commcare-asterisk in docker/docker-compose.infra.yaml)
+# Must match docker/asterisk/.env: ASTERISK_ARI_USER / ASTERISK_ARI_PASSWORD
 # Host dev: http://localhost:8088 — Docker app: http://asterisk:8088
 ARI_HOST=http://localhost:8088
 ARI_USER=commcare
@@ -72,13 +73,11 @@ ARI_WS_URL=ws://localhost:8088/ari/events?app=pbx&api_key=commcare:commcare-dev-
 ARI_CONSUMER_ENABLED=false
 ARI_LEADER_LOCK_TTL_SECONDS=10
 ARI_LEADER_LOCK_RENEW_INTERVAL_MS=5000
-# External click2call dial string — use {number} placeholder (FreePBX: Local/{number}@from-internal)
+# External click2call dial string — use {number} placeholder
 ARI_OUTBOUND_ENDPOINT_TEMPLATE=Local/{number}@from-internal
 
-# FreePbx
-FREEPBX_BASE_URL=freepbx base url
-FREEPBX_GRAPHQL_URL=freepbx graphql url
-FREEPBX_TOKEN_URL=freepbx token url
-FREEPBX_CLIENT_ID=freepbx client id
-FREEPBX_CLIENT_SECRET=freepbx client secret
-FREEPBX_OAUTH_SCOPE=gql:core gql:framework
+# Asterisk PJSIP realtime uses the same PostgreSQL as CommCare.
+# Asterisk container credentials: copy docker/asterisk/.env.sample → docker/asterisk/.env
+#   ASTERISK_ARI_*  ↔  ARI_USER / ARI_PASSWORD (above)
+#   ASTERISK_AMI_*  ↔  AMI_USERNAME / AMI_SECRET (CDR worker)
+# Dev SIP extensions 101/102: ASTERISK_DEV_EXT_101_PASSWORD / _102_ in docker/asterisk/.env

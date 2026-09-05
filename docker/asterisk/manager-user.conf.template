@@ -1,0 +1,6 @@
+[${ASTERISK_AMI_USERNAME}]
+secret = ${ASTERISK_AMI_SECRET}
+read = all
+write = all
+eventfilter = !Event: RTCPSent
+eventfilter = !Event: RTCPReceived

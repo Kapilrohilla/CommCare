@@ -11,6 +11,9 @@
 #   AMI_HOST=localhost
 #   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 #
+# Asterisk container env (copy docker/asterisk/.env.sample → docker/asterisk/.env):
+#   ASTERISK_ARI_* must match ARI_USER / ARI_PASSWORD in CommCare .env
+#
 # App containers (docker-compose.yaml) connect via Docker network `commcare`
 # using service hostnames: db, redis, kafka, otel-collector, etc.
 
@@ -22,6 +25,12 @@ services:
   asterisk:
     image: andrius/asterisk:22.10.1_debian-trixie
     container_name: commcare-asterisk
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./asterisk/.env
+    entrypoint: ['/etc/asterisk/docker-entrypoint.sh']
     ports:
       - '5060:5060/udp'
       - '5060:5060/tcp'
@@ -47,6 +56,8 @@ services:
   db:
     image: postgres:15
     container_name: commcare-db
+    env_file:
+      - ./asterisk/.env
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -55,6 +66,7 @@ services:
       - '5432:5432'
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./postgres:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres -d postgres']
       interval: 5s

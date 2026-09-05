@@ -410,4 +410,29 @@ export class SystemRecordingService {
 			throw new ForbiddenException('Tenant setup required');
 		}
 	}
+
+	/**
+	 * Signed HTTP URL for Asterisk ARI playback (sound:http://...).
+	 * Asterisk must be able to reach the URL from its network.
+	 */
+	async getTelephonyPlaybackUrl(
+		tenantId: string,
+		recordingId: string,
+	): Promise<string | null> {
+		const recording = await this.systemRecordingRepository.getByIdAndTenantId(
+			recordingId,
+			tenantId,
+		);
+
+		if (!recording?.storageKey || recording.status !== SystemRecordingStatus.ACTIVE) {
+			return null;
+		}
+
+		const { url } = await this.storageService.createDownloadUrl({
+			path: recording.storageKey,
+			expiresIn: 3600,
+		});
+
+		return url;
+	}
 }

@@ -1,3 +1,4 @@
+import { randomBytes, randomUUID } from 'node:crypto';
 import {
 	BadRequestException,
 	Injectable,
@@ -5,7 +6,6 @@ import {
 	Logger,
 	NotFoundException,
 } from '@nestjs/common';
-import { randomBytes, randomUUID } from 'node:crypto';
 import { Events } from 'src/constants/event.constant';
 import { env } from 'src/config/env.config';
 import { EventProducer } from 'src/infra/queue/services/event-producer.service';
@@ -22,7 +22,7 @@ import {
 import { CreateExtensionInput, ExtensionCreateEventPayload } from '../dto/extension.dto';
 import { Extension, UserInfo } from '../entity/extension.entity';
 import { ExtensionRepository } from '../repositories/extension.repository';
-import { FreePbxService } from './freepbx.service';
+import { AsteriskProvisioningService } from './asterisk-provisioning.service';
 
 @Injectable()
 export class ExtensionService {
@@ -33,13 +33,12 @@ export class ExtensionService {
 		private readonly extensionRepository: ExtensionRepository,
 		private readonly redisService: RedisService,
 		private readonly logger: Logger,
-		private readonly freePbxService: FreePbxService,
+		private readonly asteriskProvisioningService: AsteriskProvisioningService,
 		private readonly redlockService: RedlockService,
 		private readonly eventProducer: EventProducer,
 	) {}
 
 	private generatePjsipPassword(): string {
-		// FreePBX requires alphanumeric secrets with both letters and numbers.
 		return randomBytes(12).toString('hex');
 	}
 
@@ -104,13 +103,9 @@ export class ExtensionService {
 			extensionNumber,
 		);
 
-		await this.freePbxService.createExtension({
-			extension: extensionNumber,
-			name: extension.callerIdName ?? extension.description ?? extensionNumber,
-			secret: extension.pjsipPassword,
-		});
-
-		return this.extensionRepository.createExtension(extension);
+		const saved = await this.extensionRepository.createExtension(extension);
+		await this.asteriskProvisioningService.provisionExtension(saved);
+		return saved;
 	}
 
 	async countAvailableExtensions(): Promise<number> {
@@ -187,9 +182,9 @@ export class ExtensionService {
 		);
 
 		for (const extension of extensions) {
-			await this.freePbxService.updateExtension(extension.extension, {
-				name: userInfo.name,
-			});
+			extension.callerIdName = userInfo.name;
+			await this.asteriskProvisioningService.updateExtension(extension);
+			await this.extensionRepository.updateExtension(extension);
 		}
 
 		return extensions;
@@ -209,10 +204,7 @@ export class ExtensionService {
 		extension.status = ExtensionStatus.RESERVED;
 		extension.callerIdName = null;
 
-		await this.freePbxService.updateExtension(extension.extension, {
-			name: extension.extension,
-		});
-
+		await this.asteriskProvisioningService.updateExtension(extension);
 		return this.extensionRepository.updateExtension(extension);
 	}
 
@@ -239,9 +231,13 @@ export class ExtensionService {
 		for (const extension of extensions) {
 			extension.userInfo = info;
 			extension.callerIdName = info.name;
-			await this.freePbxService.updateExtension(extension.extension, { name: info.name });
+			await this.asteriskProvisioningService.updateExtension(extension);
 			await this.extensionRepository.updateExtension(extension);
 		}
+	}
+
+	async syncAllToAsterisk(): Promise<{ synced: number; errors: number }> {
+		return this.asteriskProvisioningService.syncAllExtensions();
 	}
 
 	async handleEventExtensionPoolMaintenance(
@@ -280,13 +276,8 @@ export class ExtensionService {
 		}
 
 		const updatedExtension = { ...existing, ...extension };
-
-		await this.freePbxService.updateExtension(existing.extension, {
-			name: updatedExtension.callerIdName ?? updatedExtension.description ?? existing.extension,
-			...(updatedExtension.pjsipPassword !== undefined && { secret: updatedExtension.pjsipPassword }),
-		});
-
-		return this.extensionRepository.updateExtension(updatedExtension);
+		await this.asteriskProvisioningService.updateExtension(updatedExtension as Extension);
+		return this.extensionRepository.updateExtension(updatedExtension as Extension);
 	}
 
 	async deleteExtension(id: string): Promise<void> {
@@ -295,7 +286,7 @@ export class ExtensionService {
 			throw new NotFoundException('Extension not found');
 		}
 
-		await this.freePbxService.deleteExtension(existing.extension);
+		await this.asteriskProvisioningService.deleteExtension(existing.extension);
 		await this.extensionRepository.deleteExtension(id);
 	}
 }

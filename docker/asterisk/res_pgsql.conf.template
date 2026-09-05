@@ -1,0 +1,6 @@
+[general]
+dbhost = ${ASTERISK_DB_HOST}
+dbname = ${ASTERISK_DB_NAME}
+dbuser = ${ASTERISK_DB_USER}
+dbpass = ${ASTERISK_DB_PASSWORD}
+dbport = ${ASTERISK_DB_PORT}

@@ -155,4 +155,37 @@ export class AsteriskService {
 			headers: this.getAuthHeaders(),
 		});
 	}
+
+	async playMedia(channelId: string, media: string): Promise<{ id: string }> {
+		const url = new URL(
+			`${this.ariBaseUrl}/ari/channels/${encodeURIComponent(channelId)}/play`,
+		);
+		url.searchParams.set('media', media);
+
+		return await this.requestClient.hitRequest({
+			method: 'POST',
+			url: url.toString(),
+			headers: this.getAuthHeaders(),
+		});
+	}
+
+	async continueInDialplan(
+		channelId: string,
+		context: string,
+		extension: string,
+		priority = 1,
+	): Promise<void> {
+		const url = new URL(
+			`${this.ariBaseUrl}/ari/channels/${encodeURIComponent(channelId)}/continue`,
+		);
+		url.searchParams.set('context', context);
+		url.searchParams.set('extension', extension);
+		url.searchParams.set('priority', String(priority));
+
+		await this.requestClient.hitRequest({
+			method: 'POST',
+			url: url.toString(),
+			headers: this.getAuthHeaders(),
+		});
+	}
 }

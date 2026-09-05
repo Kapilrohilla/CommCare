@@ -1,8 +1,8 @@
 # CommCare
 
-CommCare is a multi-tenant backend that sits **above Asterisk / FreePBX**. It exposes authenticated REST APIs, call orchestration (click2call), extension management, outbound webhooks, and async event processing — while Asterisk handles SIP, media, and telephony primitives.
+CommCare is a multi-tenant backend that sits **above Asterisk**. It exposes authenticated REST APIs, call orchestration (click2call, IVR, inbound routing), extension management, outbound webhooks, and async event processing — while Asterisk handles SIP, media, and telephony primitives.
 
-CommCare does not replace Asterisk. It orchestrates and integrates with it through **ARI**, **AMI/CDR**, and **FreePBX APIs**, storing application state in PostgreSQL and processing telephony events through **Kafka → BullMQ** workers.
+CommCare does not replace Asterisk. It orchestrates and integrates with it through **ARI** and **AMI/CDR**, provisioning PJSIP extensions via **PostgreSQL realtime** (`ps_*` tables — no `pjsip reload` per extension). Application state lives in PostgreSQL; telephony events flow through **Kafka → BullMQ** workers.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ flowchart TB
     API[CommCare API]
     ARIConsumer[ARI Consumer]
     Workers[BullMQ Workers]
-    Asterisk[Asterisk / FreePBX]
+    Asterisk[Asterisk PBX]
     PG[(PostgreSQL)]
     Redis[(Redis)]
     Kafka[(Kafka)]
@@ -59,7 +59,7 @@ flowchart TB
 - [AWS S3](https://aws.amazon.com/s3/) — object storage
 - [Prometheus](https://prometheus.io) + [Grafana](https://grafana.com) + [OpenTelemetry](https://opentelemetry.io) — metrics & tracing
 - [Asterisk ARI](https://docs.asterisk.org/Configuration/Interfaces/Asterisk-REST-Interface-ARI/) — call control
-- [FreePBX GraphQL](https://wiki.freepbx.org/) — extension provisioning
+- [Asterisk PJSIP Realtime](https://docs.asterisk.org/Configuration/Channel-Drivers/SIP/Configuring-res_pjsip/PJSIP-Configuration-Wizard-and-Realtime/) — extension provisioning via PostgreSQL
 
 
 
@@ -81,7 +81,7 @@ src/
 │   ├── calls/              # Click2call, call/legs/events persistence
 │   ├── healthCheck/        # Liveness, readiness, Asterisk ping
 │   ├── iam/                # Auth, users, sessions, OTP, visitors
-│   ├── pbx/                # Asterisk ARI, FreePBX, extensions, ARI consumer
+│   ├── pbx/                # Asterisk ARI, PJSIP realtime provisioning, extensions, ARI consumer
 │   ├── tenancy/            # Tenants & extension assignment
 │   └── webhook/            # Webhook registry, fanout, delivery, logs
 ├── shared/                 # Guards, pipes, filters, request client
@@ -113,18 +113,20 @@ Identity and access for multi-tenant users.
 
 
 
-### PBX (`/pbx`, FreePBX integration)
+### PBX (`/pbx`)
 
 Low-level telephony integration (not the primary app API for calls).
 
+**Stasis appArgs convention:** `[workflow, tenantId, correlationId, ...]` — e.g. `click2call`, `ivr`, `inbound-route`.
 
-| Service              | Role                                                                               |
-| -------------------- | ---------------------------------------------------------------------------------- |
-| `AsteriskService`    | ARI REST: originate, bridge, hangup, health ping                                   |
-| `AriConsumerService` | WebSocket to Stasis app `pbx`, leader election via Redis, publishes `ariCallEvent` |
-| `ExtensionService`   | Extension pool, FreePBX create, tenant assignment                                  |
-| `FreePbxService`     | FreePBX GraphQL API client                                                         |
-| `AsteriskCDRService` | CDR event worker (Kafka `cdrEvent`)                                                |
+| Service                       | Role                                                                               |
+| ----------------------------- | ---------------------------------------------------------------------------------- |
+| `AsteriskService`             | ARI REST: originate, bridge, hangup, playback, health ping                         |
+| `AriConsumerService`          | WebSocket to Stasis app `pbx`, leader election via Redis, publishes `ariCallEvent` |
+| `AsteriskProvisioningService` | Upsert/delete `ps_*` realtime rows (no reload per extension)                       |
+| `ExtensionService`            | Extension pool, Asterisk provisioning, tenant assignment                           |
+| `CallWorkflowRouterService`   | Routes ARI events to workflow handlers (click2call, IVR, inbound)                  |
+| `AsteriskCDRService`          | CDR event worker (Kafka `cdrEvent`)                                                |
 
 
 **Docker:** `commcare-ari-consumer` runs the ARI WebSocket; the API sets `ARI_CONSUMER_ENABLED=false`.
@@ -226,7 +228,7 @@ Docker `commcare-app` sets these automatically. Local dev often uses `NONE` unti
 - Node.js 20+
 - pnpm
 - Docker & Docker Compose
-- Asterisk with ARI enabled (Stasis app: `pbx`) and/or FreePBX
+- Asterisk with ARI enabled (Stasis app: `pbx`) and PJSIP realtime connected to PostgreSQL
 
 
 
@@ -257,7 +259,6 @@ Key variables:
 | `ARI_HOST`, `ARI_USER`, `ARI_PASSWORD`   | Asterisk ARI REST                                           |
 | `ARI_CONSUMER_ENABLED`                   | `true` only for in-process ARI consumer (local dev)         |
 | `ARI_OUTBOUND_ENDPOINT_TEMPLATE`         | External dial template, e.g. `Local/{number}@from-internal` |
-| `FREEPBX_*`                              | FreePBX OAuth + GraphQL for extension sync                  |
 | `JWT_SECRET`                             | Auth signing secret (min 32 chars)                          |
 | `WEBHOOK_URL`                            | CDR worker target (`http://host:3000/calls/cdr/webhook`)    |
 
@@ -267,8 +268,27 @@ Environment is validated at startup via `src/config/env.config.ts`.
 ### Docker — infrastructure
 
 ```bash
+cp docker/asterisk/.env.sample docker/asterisk/.env
 docker compose -f docker/docker-compose.infra.yaml up -d
 ```
+
+**Two env files in dev:**
+
+| File | Purpose |
+| ---- | ------- |
+| `.env` (project root) | CommCare app: `ARI_USER`, `ARI_PASSWORD`, DB, Kafka, etc. |
+| `docker/asterisk/.env` | Asterisk container: `ASTERISK_ARI_*`, `ASTERISK_AMI_*`, DB DSN, dev SIP passwords |
+
+Keep ARI/AMI credentials in sync between both files. Mismatched values cause ARI authentication failures.
+
+| Asterisk env (`docker/asterisk/.env`) | CommCare env (`.env`) |
+| ------------------------------------- | --------------------- |
+| `ASTERISK_ARI_USER` | `ARI_USER` |
+| `ASTERISK_ARI_PASSWORD` | `ARI_PASSWORD` |
+| `ASTERISK_AMI_USERNAME` | `AMI_USERNAME` |
+| `ASTERISK_AMI_SECRET` | `AMI_SECRET` |
+| `ASTERISK_DEV_EXT_101_PASSWORD` | (softphone 101 secret) |
+| `ASTERISK_DEV_EXT_102_PASSWORD` | (softphone 102 secret) |
 
 Host `.env` when running API locally:
 

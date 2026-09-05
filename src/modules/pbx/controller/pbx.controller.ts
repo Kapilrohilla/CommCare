@@ -1,8 +1,13 @@
-import { Controller } from "@nestjs/common";
+import { Controller, Post } from '@nestjs/common';
+import { ExtensionService } from '../services/extension.service';
 
 @Controller('/pbx')
 export class PbxController {
+	constructor(private readonly extensionService: ExtensionService) {}
 
-	// constructor(private readonly asteriskController: AsteriskController) {}
-
+	/** Bulk-sync CommCare extensions → Asterisk PJSIP realtime tables (no reload). */
+	@Post('/extensions/sync-asterisk')
+	async syncExtensionsToAsterisk() {
+		return this.extensionService.syncAllToAsterisk();
+	}
 }

@@ -346,4 +346,48 @@ export class IVRService {
 
 		return auth.tenantId;
 	}
+
+	/** Internal — live call workflow (no auth context). */
+	async getIvrForCallWorkflow(tenantId: string, ivrId: string): Promise<IVREntity | null> {
+		return this.ivrRepository.getByIdAndTenantId(ivrId, tenantId);
+	}
+
+	async getOptionsForCallWorkflow(ivrId: string): Promise<IVROptionEntity[]> {
+		return this.ivrOptionsService.getByIvrId(ivrId);
+	}
+
+	async getOptionByDigitForCallWorkflow(
+		ivrId: string,
+		digit: string,
+	): Promise<IVROptionEntity | null> {
+		return this.ivrOptionsService.getByIvrIdAndDigit(ivrId, digit);
+	}
+
+	async createSessionForCall(
+		tenantId: string,
+		ivrId: string,
+		callId: string,
+	): Promise<IVRSessionEntity> {
+		const session = new IVRSessionEntity();
+		session.tenantId = tenantId;
+		session.callId = callId;
+		session.ivrId = ivrId;
+		session.state = IVRSessionState.STARTED;
+		session.invalidAttempts = 0;
+		session.timeoutAttempts = 0;
+		session.lastDigit = null;
+
+		return this.ivrSessionService.create(session);
+	}
+
+	async updateSessionForCall(session: IVRSessionEntity): Promise<IVRSessionEntity> {
+		return this.ivrSessionService.save(session);
+	}
+
+	async getSessionForCallWorkflow(
+		sessionId: string,
+		tenantId: string,
+	): Promise<IVRSessionEntity | null> {
+		return this.ivrSessionService.getByIdAndTenantId(sessionId, tenantId);
+	}
 }

@@ -45,4 +45,26 @@ export class InboundRouteRepository {
 			order: { updatedAt: 'DESC' },
 		});
 	}
+
+	async getEnabledBySourceValue(sourceValue: string): Promise<InboundRoute | null> {
+		return this.readerRepository.findOne({
+			where: { sourceValue, enabled: true },
+		});
+	}
+
+	async existsBySourceValue(
+		sourceValue: string,
+		excludeId?: string,
+	): Promise<boolean> {
+		const qb = this.readerRepository
+			.createQueryBuilder('route')
+			.where('route.source_value = :sourceValue', { sourceValue });
+
+		if (excludeId) {
+			qb.andWhere('route.id != :excludeId', { excludeId });
+		}
+
+		const count = await qb.getCount();
+		return count > 0;
+	}
 }

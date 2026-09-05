@@ -7,8 +7,10 @@ import { RedlockService } from 'src/infra/redis/services/redlock.service';
 import {
 	AriCallEventPayload,
 	RawAriEvent,
+	isRoutingRelevantAriEvent,
 	resolveAriPartitionKey,
 } from '../types/ari-event.types';
+import { buildAriEventIdempotencyKey } from '../utils/ari-idempotency.util';
 
 const REDIS_NAMESPACE = 'ariConsumer';
 const LEADER_LOCK_KEY = 'leader';
@@ -213,9 +215,17 @@ export class AriConsumerService implements OnModuleInit, OnModuleDestroy {
 			return;
 		}
 
+		if (isRoutingRelevantAriEvent(event)) {
+			this.logger.debug(
+				`ARI routing event: type=${event.type} channel=${event.channel?.id ?? 'n/a'} args=${JSON.stringify(event.args ?? [])}`,
+			);
+		}
+
 		const partitionKey = resolveAriPartitionKey(event);
+		const idempotencyKey = buildAriEventIdempotencyKey(event);
 		const payload: AriCallEventPayload = {
 			partitionKey,
+			idempotencyKey,
 			body: event as unknown as Record<string, unknown>,
 		};
 

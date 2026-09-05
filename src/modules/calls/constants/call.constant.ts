@@ -2,12 +2,14 @@ export enum CallWorkflow {
 	CLICK_TO_CALL = 'click_to_call',
 }
 
-/** Stasis appArgs passed to Asterisk for click2call correlation. */
-export const CLICK2CALL_APP_ARGS = {
-	WORKFLOW: 'click2call',
-	LEG_AGENT: 'agent',
-	LEG_CALLEE: 'callee',
-} as const;
+export {
+	CLICK2CALL_APP_ARGS,
+	STASIS_WORKFLOW,
+	buildClick2CallAppArgs,
+	buildIvrAppArgs,
+	buildInboundRouteAppArgs,
+	parseStasisAppArgs,
+} from 'src/constants/stasis-app-args.constant';
 
 export enum CallDirection {
 	/**

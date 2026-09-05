@@ -1,4 +1,6 @@
 import {
+	BadRequestException,
+	ConflictException,
 	ForbiddenException,
 	Injectable,
 	NotFoundException,
@@ -32,6 +34,7 @@ export class InboundRoutesService {
 		const tenantId = this.requireTenant(auth);
 		await this.validateSource(auth, dto);
 		await this.validateDestination(auth, dto);
+		await this.ensureUniqueSourceValue(dto.sourceValue);
 
 		const route = new InboundRoute();
 		route.tenantId = tenantId;
@@ -89,6 +92,9 @@ export class InboundRoutesService {
 			dto.sourceValue !== undefined
 		) {
 			await this.validateSource(auth, nextSource);
+			if (nextSource.sourceValue) {
+				await this.ensureUniqueSourceValue(nextSource.sourceValue, route.id);
+			}
 			route.sourceType = nextSource.sourceType;
 			route.sourceId = nextSource.sourceId ?? null;
 			route.sourceValue = nextSource.sourceValue ?? null;
@@ -115,6 +121,32 @@ export class InboundRoutesService {
 	async deleteInboundRoute(auth: AuthContext, id: string): Promise<void> {
 		await this.getRouteForTenant(auth, id);
 		await this.inboundRouteRepository.delete(id);
+	}
+
+	async findEnabledRouteByDid(did: string): Promise<InboundRoute | null> {
+		if (!did.trim()) {
+			return null;
+		}
+		return this.inboundRouteRepository.getEnabledBySourceValue(did);
+	}
+
+	private async ensureUniqueSourceValue(
+		sourceValue: string | null | undefined,
+		excludeId?: string,
+	): Promise<void> {
+		if (!sourceValue?.trim()) {
+			return;
+		}
+
+		const exists = await this.inboundRouteRepository.existsBySourceValue(
+			sourceValue,
+			excludeId,
+		);
+		if (exists) {
+			throw new ConflictException(
+				`Inbound route with sourceValue ${sourceValue} already exists`,
+			);
+		}
 	}
 
 	private async getRouteForTenant(
