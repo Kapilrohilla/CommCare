@@ -119,11 +119,17 @@ export class ExtensionService {
 		}
 
 		const deficit = MIN_AVAILABLE_EXTENSION_THRESHOLD - available;
+		this.logger.log(`Deficit: ${deficit}`);
+		this.logger.log(`EXTENSION_REPLENISH_BATCH_SIZE: ${EXTENSION_REPLENISH_BATCH_SIZE}`);
 		const count = Math.max(deficit, EXTENSION_REPLENISH_BATCH_SIZE);
+		this.logger.log(`Count: ${count}`);
 		const batchId = randomUUID();
+		this.logger.log(`Batch ID: ${batchId}`);
 
 		for (let index = 0; index < count; index++) {
+			this.logger.log(`Enqueuing extension create event for batch ${batchId} index ${index}`);
 			await this.eventProducer.publish(Events.extensionCreate, { batchId, index });
+			this.logger.log(`Enqueued extension create event for batch ${batchId} index ${index}`);
 		}
 
 		this.logger.log(`Enqueued ${count} pool extension create events (available: ${available})`);
