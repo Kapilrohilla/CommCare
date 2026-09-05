@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PostgresqlService } from 'src/infra/database/postgresql/postgresqlService';
 import { Extension } from '../entity/extension.entity';
+import { PsAor } from '../entity/ps-aor.entity';
+import { PsAuth } from '../entity/ps-auth.entity';
+import { PsEndpoint } from '../entity/ps-endpoint.entity';
+import { PsAorRepository } from './ps-aor.repository';
+import { PsAuthRepository } from './ps-auth.repository';
+import { PsEndpointRepository } from './ps-endpoint.repository';
 
 export interface PjsipRealtimeRows {
 	endpointId: string;
@@ -10,11 +16,12 @@ export interface PjsipRealtimeRows {
 
 @Injectable()
 export class PjsipRealtimeRepository {
-	constructor(private readonly postgresqlService: PostgresqlService) {}
-
-	private get dataSource() {
-		return this.postgresqlService.getWriterDataSource();
-	}
+	constructor(
+		private readonly postgresqlService: PostgresqlService,
+		private readonly psAuthRepository: PsAuthRepository,
+		private readonly psAorRepository: PsAorRepository,
+		private readonly psEndpointRepository: PsEndpointRepository,
+	) {}
 
 	endpointIds(extensionNumber: string): PjsipRealtimeRows {
 		return {
@@ -33,53 +40,53 @@ export class PjsipRealtimeRepository {
 					? `${extension.callerIdName} <${extension.extension}>`
 					: `Extension ${extension.extension} <${extension.extension}>`;
 
-		await this.dataSource.transaction(async (manager) => {
-			await manager.query(
-				`INSERT INTO ps_auths (id, auth_type, username, password)
-				 VALUES ($1, 'userpass', $2, $3)
-				 ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username, password = EXCLUDED.password`,
-				[authId, extension.pjsipUsername, extension.pjsipPassword],
-			);
+		const auth = new PsAuth();
+		auth.id = authId;
+		auth.authType = 'userpass';
+		auth.username = extension.pjsipUsername;
+		auth.password = extension.pjsipPassword;
 
-			await manager.query(
-				`INSERT INTO ps_aors (id, max_contacts, remove_existing)
-				 VALUES ($1, 3, 'yes')
-				 ON CONFLICT (id) DO NOTHING`,
-				[aorId],
-			);
+		const aor = new PsAor();
+		aor.id = aorId;
+		aor.maxContacts = 3;
+		aor.removeExisting = 'yes';
 
-			await manager.query(
-				`INSERT INTO ps_endpoints (
-					id, transport, aors, auth, context, disallow, allow,
-					direct_media, rtp_symmetric, force_rport, rewrite_contact,
-					callerid, media_use_received_transport
-				) VALUES (
-					$1, 'transport-udp', $2, $3, 'from-internal', 'all', 'ulaw,alaw,gsm',
-					'no', 'yes', 'yes', 'yes', $4, 'yes'
-				)
-				ON CONFLICT (id) DO UPDATE SET
-					aors = EXCLUDED.aors,
-					auth = EXCLUDED.auth,
-					callerid = EXCLUDED.callerid`,
-				[endpointId, aorId, authId, callerId],
-			);
+		const endpoint = new PsEndpoint();
+		endpoint.id = endpointId;
+		endpoint.transport = 'transport-udp';
+		endpoint.aors = aorId;
+		endpoint.auth = authId;
+		endpoint.context = 'from-internal';
+		endpoint.disallow = 'all';
+		endpoint.allow = 'ulaw,alaw,gsm';
+		endpoint.directMedia = 'no';
+		endpoint.rtpSymmetric = 'yes';
+		endpoint.forceRport = 'yes';
+		endpoint.rewriteContact = 'yes';
+		endpoint.callerid = callerId;
+		endpoint.mediaUseReceivedTransport = 'yes';
+
+		await this.postgresqlService.getWriterDataSource().transaction(async (manager) => {
+			await manager.save(PsAuth, auth);
+			const existingAor = await manager.findOne(PsAor, { where: { id: aorId } });
+			if (!existingAor) {
+				await manager.save(PsAor, aor);
+			}
+			await manager.save(PsEndpoint, endpoint);
 		});
 	}
 
 	async deleteExtension(extensionNumber: string): Promise<void> {
 		const { endpointId, authId, aorId } = this.endpointIds(extensionNumber);
 
-		await this.dataSource.transaction(async (manager) => {
-			await manager.query(`DELETE FROM ps_endpoints WHERE id = $1`, [endpointId]);
-			await manager.query(`DELETE FROM ps_auths WHERE id = $1`, [authId]);
-			await manager.query(`DELETE FROM ps_aors WHERE id = $1`, [aorId]);
+		await this.postgresqlService.getWriterDataSource().transaction(async (manager) => {
+			await manager.delete(PsEndpoint, { id: endpointId });
+			await manager.delete(PsAuth, { id: authId });
+			await manager.delete(PsAor, { id: aorId });
 		});
 	}
 
 	async listEndpointIds(): Promise<string[]> {
-		const rows = (await this.dataSource.query(
-			`SELECT id FROM ps_endpoints ORDER BY id`,
-		)) as Array<{ id: string }>;
-		return rows.map((row) => row.id);
+		return this.psEndpointRepository.listIds();
 	}
 }

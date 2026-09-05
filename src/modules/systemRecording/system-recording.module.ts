@@ -2,11 +2,13 @@ import { Logger, Module } from '@nestjs/common';
 import { DatabaseModule } from 'src/infra/database/connectors/typeORM';
 import { StorageModule } from 'src/infra/storage/storage.module';
 import { QueueModule } from 'src/infra/queue/queue.module';
+import { GlobalModule } from 'src/modules/global/global.module';
 import { SystemRecordingService } from './services/system-recording.service';
 import { SystemRecordingRepository } from './repositories/system-recording.repository';
 import { SystemRecordingController } from './controller/system-recording.controller';
 import { RecordingProcessorService } from './services/recording-processor.service';
 import { TextToSpeechService } from './services/text-to-speech.service';
+import { AwsPollyService } from './services/aws-polly.service';
 import { SystemRecording } from './entity/system-recording.entity';
 
 @Module({
@@ -14,6 +16,7 @@ import { SystemRecording } from './entity/system-recording.entity';
 		DatabaseModule.forFeature([SystemRecording]),
 		StorageModule,
 		QueueModule,
+		GlobalModule,
 	],
 	controllers: [SystemRecordingController],
 	providers: [
@@ -21,6 +24,7 @@ import { SystemRecording } from './entity/system-recording.entity';
 		SystemRecordingRepository,
 		RecordingProcessorService,
 		TextToSpeechService,
+		AwsPollyService,
 		Logger,
 	],
 	exports: [SystemRecordingService],

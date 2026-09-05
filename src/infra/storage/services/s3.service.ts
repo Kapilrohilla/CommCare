@@ -14,6 +14,7 @@ import {
 	DeleteFileDto,
 	DownloadUrl,
 	ExistsDto,
+	PutObjectDto,
 	UploadUrl,
 } from '../dto/storage.dto';
 
@@ -95,6 +96,19 @@ export class S3Service  {
 			}
 			throw error;
 		}
+	}
+
+	async putObject(input: PutObjectDto): Promise<void> {
+		this.ensureBucketConfigured();
+
+		await this.client.send(
+			new PutObjectCommand({
+				Bucket: this.bucket,
+				Key: input.path,
+				Body: input.body,
+				ContentType: input.contentType,
+			}),
+		);
 	}
 
 	private ensureBucketConfigured(): void {

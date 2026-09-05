@@ -17,6 +17,7 @@ import { WebhookModule } from './modules/webhook/webhook.module';
 import { SystemRecordingModule } from './modules/systemRecording/system-recording.module';
 import { IvrModule } from './modules/ivr/ivr.module';
 import { RoutingModule } from './modules/routing/routing.module';
+import { GlobalModule } from './modules/global/global.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { RoutingModule } from './modules/routing/routing.module';
     SystemRecordingModule,
     IvrModule,
     RoutingModule,
+    GlobalModule,
   ],
 })
 export class AppModule {}

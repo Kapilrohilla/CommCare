@@ -4,7 +4,12 @@ import { PjsipRealtimeRepository } from '../repositories/pjsip-realtime.reposito
 
 describe('PjsipRealtimeRepository', () => {
 	it('maps extension number to stable ps_* ids', () => {
-		const repo = new PjsipRealtimeRepository({} as never);
+		const repo = new PjsipRealtimeRepository(
+			{} as never,
+			{} as never,
+			{} as never,
+			{} as never,
+		);
 		expect(repo.endpointIds('101')).toEqual({
 			endpointId: '101',
 			authId: '101-auth',

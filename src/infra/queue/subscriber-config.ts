@@ -84,7 +84,6 @@ export const SUBSCRIBER_CONFIGS: SubscriberConfig[] = [
     eventName: Events.extensionCreate,
     serviceClass: ExtensionService,
     subscriberServiceName: 'extensionService',
-    // TODO: currently cann't support concurrency need to look into other possibilities
     concurrency: 10,
     limiter: { max: 10, duration: 60_000 },
   },

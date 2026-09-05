@@ -5,6 +5,7 @@ import {
 	DeleteFileDto,
 	DownloadUrl,
 	ExistsDto,
+	PutObjectDto,
 	UploadUrl,
 } from '../dto/storage.dto';
 import { S3Service } from './s3.service';
@@ -38,5 +39,9 @@ export class StorageService {
 
 	async exists(input: ExistsDto): Promise<{exists: boolean}> {
 		return this.defaultVendor().exists(input);
+	}
+
+	async putObject(input: PutObjectDto): Promise<void> {
+		return this.defaultVendor().putObject(input);
 	}
 }
