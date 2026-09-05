@@ -36,6 +36,10 @@ services:
       KAFKA_SUBSCRIBER: ALL
       BULLMQ_SUBSCRIBER: ALL
       BULLMQ_CONSUMERS_ENABLED: 'true'
+      ARI_HOST: http://asterisk:8088
+      ARI_USER: commcare
+      ARI_PASSWORD: commcare-dev-secret
+      ARI_WS_URL: ws://asterisk:8088/ari/events?app=pbx&api_key=commcare:commcare-dev-secret
       ARI_CONSUMER_ENABLED: 'false'
       TRACING_ENABLED: 'true'
       OTEL_SERVICE_NAME: commcare
@@ -55,6 +59,10 @@ services:
       - ../.env
     environment:
       ARI_CONSUMER_ENABLED: 'true'
+      ARI_HOST: http://asterisk:8088
+      ARI_USER: commcare
+      ARI_PASSWORD: commcare-dev-secret
+      ARI_WS_URL: ws://asterisk:8088/ari/events?app=pbx&api_key=commcare:commcare-dev-secret
       KAFKA_SUBSCRIBER: 'NONE'
       BULLMQ_SUBSCRIBER: 'NONE'
       BULLMQ_CONSUMERS_ENABLED: 'false'
@@ -78,6 +86,10 @@ services:
       - ../.env
     environment:
       WEBHOOK_URL: http://app:3000/calls/cdr/webhook
+      AMI_HOST: asterisk
+      AMI_PORT: 5038
+      AMI_USERNAME: commcare
+      AMI_SECRET: commcare-ami-secret
     depends_on:
       app:
         condition: service_healthy

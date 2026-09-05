@@ -48,11 +48,11 @@ BULLMQ_WORKER_CONCURRENCY=5
 BULLMQ_UI_ENABLED=true
 BULLMQ_UI_PATH=/admin/queues
 
-# Asterisk AMI (for asterisk-cdr-worker)
-AMI_HOST=127.0.0.1
+# Asterisk AMI (asterisk-cdr-worker → commcare-asterisk)
+AMI_HOST=localhost
 AMI_PORT=5038
-AMI_USERNAME=your_ami_user
-AMI_SECRET=your_ami_secret
+AMI_USERNAME=commcare
+AMI_SECRET=commcare-ami-secret
 
 # Auth
 JWT_SECRET=dev-jwt-secret-change-in-production-min-32-chars
@@ -62,11 +62,12 @@ WEBHOOK_URL=http://localhost:3000/calls/cdr/webhook
 WEBHOOK_TIMEOUT=10000
 WEBHOOK_RETRIES=3
 
-# Asterisk ARI
-ARI_HOST=asterisk ari host (with port if have)
-ARI_USER=asterisk ari username
-ARI_PASSWORD=asterisk ari password
-ARI_WS_URL=
+# Asterisk ARI (commcare-asterisk in docker/docker-compose.infra.yaml)
+# Host dev: http://localhost:8088 — Docker app: http://asterisk:8088
+ARI_HOST=http://localhost:8088
+ARI_USER=commcare
+ARI_PASSWORD=commcare-dev-secret
+ARI_WS_URL=ws://localhost:8088/ari/events?app=pbx&api_key=commcare:commcare-dev-secret
 # Set true only when running ARI consumer in-process (local dev). Docker uses commcare-ari-consumer service.
 ARI_CONSUMER_ENABLED=false
 ARI_LEADER_LOCK_TTL_SECONDS=10

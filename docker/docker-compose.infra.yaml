@@ -7,6 +7,8 @@
 #   WRITER_DB_HOST=localhost   READER_DB_HOST=localhost
 #   REDIS_HOST=localhost
 #   KAFKA_BROKERS=localhost:9094
+#   ARI_HOST=http://localhost:8088
+#   AMI_HOST=localhost
 #   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 #
 # App containers (docker-compose.yaml) connect via Docker network `commcare`
@@ -15,6 +17,33 @@
 name: commcare-infra
 
 services:
+
+  # Asterisk PBX (ARI + AMI + PJSIP)
+  asterisk:
+    image: andrius/asterisk:22.10.1_debian-trixie
+    container_name: commcare-asterisk
+    ports:
+      - '5060:5060/udp'
+      - '5060:5060/tcp'
+      - '5061:5061/tcp'
+      - '8088:8088/tcp'
+      - '5038:5038/tcp'
+      - '10000-10199:10000-10199/udp'
+    volumes:
+      - ./asterisk:/etc/asterisk:ro
+      - asterisk-data:/var/lib/asterisk
+      - asterisk-spool:/var/spool/asterisk
+      - asterisk-log:/var/log/asterisk
+    networks:
+      - commcare
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'asterisk -rx "core show version" | grep -q Asterisk']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
   db:
     image: postgres:15
     container_name: commcare-db
@@ -235,3 +264,6 @@ volumes:
   grafana_data:
   loki_data:
   tempo_data:
+  asterisk-data:
+  asterisk-spool:
+  asterisk-log:
