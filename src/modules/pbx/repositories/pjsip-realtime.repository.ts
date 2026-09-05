@@ -1,7 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
-import { DB_CONNECTION_WRITER } from 'src/infra/database/postgresql/postgresqlConfig';
+import { PostgresqlService } from 'src/infra/database/postgresql/postgresqlService';
 import { Extension } from '../entity/extension.entity';
 
 export interface PjsipRealtimeRows {
@@ -12,10 +10,11 @@ export interface PjsipRealtimeRows {
 
 @Injectable()
 export class PjsipRealtimeRepository {
-	constructor(
-		@InjectDataSource(DB_CONNECTION_WRITER)
-		private readonly dataSource: DataSource,
-	) {}
+	constructor(private readonly postgresqlService: PostgresqlService) {}
+
+	private get dataSource() {
+		return this.postgresqlService.getWriterDataSource();
+	}
 
 	endpointIds(extensionNumber: string): PjsipRealtimeRows {
 		return {
