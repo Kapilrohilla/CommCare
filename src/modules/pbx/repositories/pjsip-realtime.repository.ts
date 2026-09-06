@@ -37,10 +37,6 @@ export class PjsipRealtimeRepository {
 		};
 	}
 
-	private legacyAorId(extensionNumber: string): string {
-		return `${extensionNumber}-aor`;
-	}
-
 	async upsertExtension(extension: Extension): Promise<void> {
 		const { endpointId, authId, aorId } = this.endpointIds(extension.extension);
 		const callerId =
@@ -76,8 +72,6 @@ export class PjsipRealtimeRepository {
 		endpoint.callerid = callerId;
 		endpoint.mediaUseReceivedTransport = 'yes';
 
-		const legacyAorId = this.legacyAorId(extension.extension);
-
 		await this.postgresqlService.getWriterDataSource().transaction(async (manager) => {
 			await manager.save(PsAuth, auth);
 			const existingAor = await manager.findOne(PsAor, { where: { id: aorId } });
@@ -85,23 +79,16 @@ export class PjsipRealtimeRepository {
 				await manager.save(PsAor, aor);
 			}
 			await manager.save(PsEndpoint, endpoint);
-			if (legacyAorId !== aorId) {
-				await manager.delete(PsAor, { id: legacyAorId });
-			}
 		});
 	}
 
 	async deleteExtension(extensionNumber: string): Promise<void> {
 		const { endpointId, authId, aorId } = this.endpointIds(extensionNumber);
-		const legacyAorId = this.legacyAorId(extensionNumber);
 
 		await this.postgresqlService.getWriterDataSource().transaction(async (manager) => {
 			await manager.delete(PsEndpoint, { id: endpointId });
 			await manager.delete(PsAuth, { id: authId });
 			await manager.delete(PsAor, { id: aorId });
-			if (legacyAorId !== aorId) {
-				await manager.delete(PsAor, { id: legacyAorId });
-			}
 		});
 	}
 
