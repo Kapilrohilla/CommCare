@@ -14,13 +14,13 @@ ON CONFLICT (id) DO UPDATE SET password = EXCLUDED.password;
 
 INSERT INTO ps_aors (id, max_contacts, remove_existing)
 VALUES
-	('101-aor', 3, 'yes'),
-	('102-aor', 3, 'yes')
+	('101', 3, 'yes'),
+	('102', 3, 'yes')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO ps_endpoints (id, transport, aors, auth, callerid)
 VALUES
-	('101', 'transport-udp', '101-aor', '101-auth', 'Extension 101 <101>'),
-	('102', 'transport-udp', '102-aor', '102-auth', 'Extension 102 <102>')
+	('101', 'transport-udp', '101', '101-auth', 'Extension 101 <101>'),
+	('102', 'transport-udp', '102', '102-auth', 'Extension 102 <102>')
 ON CONFLICT (id) DO NOTHING;
 EOSQL

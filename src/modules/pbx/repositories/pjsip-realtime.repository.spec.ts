@@ -13,7 +13,7 @@ describe('PjsipRealtimeRepository', () => {
 		expect(repo.endpointIds('101')).toEqual({
 			endpointId: '101',
 			authId: '101-auth',
-			aorId: '101-aor',
+			aorId: '101',
 		});
 	});
 });
