@@ -1,0 +1,23 @@
+; Static PJSIP — transports only. Endpoints live in PostgreSQL realtime (ps_* tables).
+; NAT lines rendered when ASTERISK_EXTERNAL_IP is set (required on EC2/public IP).
+
+[global]
+type = global
+max_forwards = 70
+user_agent = CommCare-Asterisk
+
+[transport-udp]
+type = transport
+protocol = udp
+bind = 0.0.0.0:5060
+@EXTERNAL_MEDIA@
+@EXTERNAL_SIGNALING@
+@LOCAL_NET@
+
+[transport-tcp]
+type = transport
+protocol = tcp
+bind = 0.0.0.0:5060
+@EXTERNAL_MEDIA@
+@EXTERNAL_SIGNALING@
+@LOCAL_NET@

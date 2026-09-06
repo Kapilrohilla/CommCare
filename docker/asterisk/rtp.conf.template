@@ -1,0 +1,6 @@
+[general]
+rtpstart = 10000
+rtpend = 10199
+@RTP_EXTERNADDR_LINE@
+icesupport = no
+strictrtp = yes
