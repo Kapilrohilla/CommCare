@@ -16,6 +16,8 @@ import { Extension } from './entity/extension.entity';
 import { PsAuth } from './entity/ps-auth.entity';
 import { PsAor } from './entity/ps-aor.entity';
 import { PsEndpoint } from './entity/ps-endpoint.entity';
+import { PsEndpointIdIp } from './entity/ps-endpoint-id-ip.entity';
+import { PsEndpointIdIpRepository } from './repositories/ps-endpoint-id-ip.repository';
 import { QueueModule } from 'src/infra/queue/queue.module';
 import { RedisModule } from 'src/infra/redis/redis.module';
 
@@ -23,7 +25,13 @@ import { RedisModule } from 'src/infra/redis/redis.module';
 	imports: [
 		QueueModule,
 		RedisModule,
-		DatabaseModule.forFeature([Extension, PsAuth, PsAor, PsEndpoint]),
+		DatabaseModule.forFeature([
+			Extension,
+			PsAuth,
+			PsAor,
+			PsEndpoint,
+			PsEndpointIdIp,
+		]),
 	],
 	controllers: [PbxController],
 	providers: [
@@ -33,6 +41,7 @@ import { RedisModule } from 'src/infra/redis/redis.module';
 		PsAuthRepository,
 		PsAorRepository,
 		PsEndpointRepository,
+		PsEndpointIdIpRepository,
 		PjsipRealtimeRepository,
 		AsteriskProvisioningService,
 		ExtensionRepository,

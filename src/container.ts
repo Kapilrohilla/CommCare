@@ -18,6 +18,7 @@ import { SystemRecordingModule } from './modules/systemRecording/system-recordin
 import { IvrModule } from './modules/ivr/ivr.module';
 import { RoutingModule } from './modules/routing/routing.module';
 import { GlobalModule } from './modules/global/global.module';
+import { TrunkModule } from './modules/trunk/trunk.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { GlobalModule } from './modules/global/global.module';
     SystemRecordingModule,
     IvrModule,
     RoutingModule,
+    TrunkModule,
     GlobalModule,
   ],
 })

@@ -82,6 +82,7 @@ src/
 │   ├── healthCheck/        # Liveness, readiness, Asterisk ping
 │   ├── iam/                # Auth, users, sessions, OTP, visitors
 │   ├── pbx/                # Asterisk ARI, PJSIP realtime provisioning, extensions, ARI consumer
+│   ├── trunk/              # SIP trunk CRUD + Asterisk identify/endpoint sync
 │   ├── tenancy/            # Tenants & extension assignment
 │   └── webhook/            # Webhook registry, fanout, delivery, logs
 ├── shared/                 # Guards, pipes, filters, request client
@@ -123,7 +124,7 @@ Low-level telephony integration (not the primary app API for calls).
 | ----------------------------- | ---------------------------------------------------------------------------------- |
 | `AsteriskService`             | ARI REST: originate, bridge, hangup, playback, health ping                         |
 | `AriConsumerService`          | WebSocket to Stasis app `pbx`, leader election via Redis, publishes `ariCallEvent` |
-| `AsteriskProvisioningService` | Upsert/delete `ps_*` realtime rows (no reload per extension)                       |
+| `AsteriskProvisioningService` | Upsert/delete `ps_*` realtime rows (extensions + SIP trunks, no reload)            |
 | `ExtensionService`            | Extension pool, Asterisk provisioning, tenant assignment                           |
 | `CallWorkflowRouterService`   | Routes ARI events to workflow handlers (click2call, IVR, inbound)                  |
 | `AsteriskCDRService`          | CDR event worker (Kafka `cdrEvent`)                                                |
@@ -131,7 +132,27 @@ Low-level telephony integration (not the primary app API for calls).
 
 **Docker:** `commcare-ari-consumer` runs the ARI WebSocket; the API sets `ARI_CONSUMER_ENABLED=false`.
 
-### Calls (`/calls`)
+### SIP trunks (`/pbx/trunks`)
+
+Carrier inbound trunks (e.g. Plivo Zentrunk) are stored in CommCare (`sip_trunks`, `sip_trunk_identify_ips`) and synced to Asterisk PJSIP realtime (`ps_endpoints`, `ps_endpoint_id_ips`). Trunk endpoints use dialplan context `from-trunk`, which enters Stasis `inbound-route` with DID=`${EXTEN}`.
+
+| Endpoint | Description |
+| -------- | ----------- |
+| `POST /pbx/trunks` | Create trunk (`authMode`: `ip` or `credentials`) |
+| `GET /pbx/trunks/tenant` | List trunks for tenant |
+| `GET /pbx/trunks/:id` | Get trunk |
+| `PATCH /pbx/trunks/:id` | Update trunk |
+| `DELETE /pbx/trunks/:id` | Delete trunk + Asterisk rows |
+| `POST /pbx/trunks/:id/sync-asterisk` | Re-provision Asterisk realtime rows |
+
+#### Plivo inbound (IP auth) checklist
+
+1. Apply Asterisk SQL: `docker/postgres/003_ps_endpoint_id_ips.sql` (and restart Asterisk after `sorcery.conf` / `extconfig.conf` / `extensions.conf` updates).
+2. In Plivo, set inbound trunk Primary URI to `sip:YOUR_PUBLIC_IP:5060` and assign the DID.
+3. Create a CommCare trunk with `authMode: "ip"` and `identifyIps` including Plivo signaling IPs (from failed-INVITE logs / Plivo docs), e.g. `13.52.9.100`.
+4. Create an inbound route with `sourceType: phone_number` and `sourceValue` **exactly** equal to Asterisk `${EXTEN}` for that DID (including `+` / country code if Plivo sends it that way).
+5. Allow UDP/TCP 5060 and RTP from Plivo at the firewall.
+6. Place a test call; Asterisk must not log `No matching endpoint found` for the Plivo INVITE, and inbound-route Stasis should run.
 
 Application-level call control and click2call workflow.
 

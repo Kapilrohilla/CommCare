@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Extension } from '../entity/extension.entity';
 import { ExtensionRepository } from '../repositories/extension.repository';
-import { PjsipRealtimeRepository } from '../repositories/pjsip-realtime.repository';
+import {
+	PjsipRealtimeRepository,
+	TrunkRealtimeProvisionInput,
+} from '../repositories/pjsip-realtime.repository';
 
 @Injectable()
 export class AsteriskProvisioningService {
@@ -24,6 +27,19 @@ export class AsteriskProvisioningService {
 	async deleteExtension(extensionNumber: string): Promise<void> {
 		await this.pjsipRealtimeRepository.deleteExtension(extensionNumber);
 		this.logger.log(`Removed PJSIP realtime rows for extension ${extensionNumber}`);
+	}
+
+	async provisionTrunk(
+		trunkUuid: string,
+		input: TrunkRealtimeProvisionInput,
+	): Promise<void> {
+		await this.pjsipRealtimeRepository.upsertTrunk(input, trunkUuid);
+		this.logger.log(`Provisioned PJSIP trunk endpoint ${input.endpointId}`);
+	}
+
+	async deleteTrunk(endpointId: string, trunkUuid: string): Promise<void> {
+		await this.pjsipRealtimeRepository.deleteTrunk(endpointId, trunkUuid);
+		this.logger.log(`Removed PJSIP trunk endpoint ${endpointId}`);
 	}
 
 	async syncAllExtensions(): Promise<{ synced: number; errors: number }> {
