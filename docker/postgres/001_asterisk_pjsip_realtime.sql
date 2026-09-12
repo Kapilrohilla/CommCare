@@ -29,7 +29,9 @@ CREATE TABLE IF NOT EXISTS ps_endpoints (
 	force_rport VARCHAR(40) DEFAULT 'yes',
 	rewrite_contact VARCHAR(40) DEFAULT 'yes',
 	callerid VARCHAR(100),
-	media_use_received_transport VARCHAR(40) DEFAULT 'yes'
+	media_use_received_transport VARCHAR(40) DEFAULT 'yes',
+	-- Required by Asterisk MWI (res_pjsip_mwi): SELECT ... WHERE mailboxes != ''
+	mailboxes VARCHAR(80) DEFAULT ''
 );
 
 -- Dev seed extensions: see 002_seed_dev_extensions.sh (env-driven passwords)
