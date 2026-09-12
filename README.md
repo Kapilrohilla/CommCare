@@ -154,6 +154,20 @@ Carrier inbound trunks (e.g. Plivo Zentrunk) are stored in CommCare (`sip_trunks
 5. Allow UDP/TCP 5060 and RTP from Plivo at the firewall.
 6. Place a test call; Asterisk must not log `No matching endpoint found` for the Plivo INVITE, and inbound-route Stasis should run.
 
+Prefer **IP auth** for providers like Plivo Zentrunk that identify peers by signaling IP and put the DID in the SIP `From` user (not a trunk username).
+
+#### Credentials (username/password) trunk checklist
+
+Use `authMode: "credentials"` when the carrier authenticates to Asterisk with SIP digest (username/password).
+
+1. Create a trunk with `authMode: "credentials"`, `username`, and `password` (username ≤ 40 chars; must not collide with extension numbers or other endpoint ids).
+2. CommCare provisions Asterisk with **PJSIP endpoint id = SIP username** and a linked `ps_auths` row so Asterisk can match the peer by username, challenge, and verify the password.
+3. `identifyIps` is **optional** for credentials mode (defense-in-depth). Add them if the provider also has stable signaling IPs; leave empty when matching is username-only.
+4. Configure the carrier to identify as that username on inbound INVITEs (digest username). If the provider only ever sends a DID in `From` and never the trunk username, use IP auth instead (or combine identify IPs + credentials).
+5. Create an inbound route whose `sourceValue` matches Asterisk `${EXTEN}` for the DID.
+6. After create/update, confirm with `asterisk -rx "pjsip show endpoint <username>"` that the endpoint shows `InAuth` and `context: from-trunk`.
+7. Place a test call; a wrong password must fail authentication and must not enter inbound-route Stasis. If an existing credentials trunk still has a legacy `trunk-{uuid}` endpoint id, call `POST /pbx/trunks/:id/sync-asterisk` once to rewrite it to the username.
+
 Application-level call control and click2call workflow.
 
 

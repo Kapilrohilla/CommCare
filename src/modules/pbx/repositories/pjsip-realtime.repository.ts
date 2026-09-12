@@ -24,7 +24,12 @@ export interface TrunkRealtimeProvisionInput {
 	password?: string | null;
 	identifyMatches: string[];
 	enabled: boolean;
+	/** Prior PJSIP endpoint id when credentials username (or auth mode) changes. */
+	previousEndpointId?: string | null;
 }
+
+/** Asterisk realtime varchar(40) limit for endpoint / auth usernames. */
+export const PJSIP_ID_MAX_LENGTH = 40;
 
 /**
  * PJSIP identity convention (inbound REGISTER):
@@ -33,7 +38,8 @@ export interface TrunkRealtimeProvisionInput {
  * - Auth ID     = `${extension}-auth`
  *
  * Trunk convention (all ids ≤ 40 chars for Asterisk realtime):
- * - Endpoint ID = `trunk-{uuidWithoutDashes}` (38)
+ * - IP mode endpoint ID = `trunk-{uuidWithoutDashes}` (38)
+ * - Credentials mode endpoint ID = SIP username (trimmed, ≤40)
  * - AOR ID      = same as endpoint
  * - Auth ID     = `ta{uuidWithoutDashes}` (34) — credentials mode only
  * - Identify ID = `i{uuidWithoutDashes}{nn}` (35)
@@ -127,18 +133,28 @@ export class PjsipRealtimeRepository {
 	}
 
 	async upsertTrunk(input: TrunkRealtimeProvisionInput, trunkUuid: string): Promise<void> {
-		const endpointId = input.endpointId;
+		const endpointId =
+			input.authMode === 'credentials'
+				? (input.username?.trim() || input.endpointId)
+				: input.endpointId;
 		const aorId = endpointId;
 		const authId = PjsipRealtimeRepository.trunkAuthId(trunkUuid);
+		const previousEndpointId = input.previousEndpointId?.trim() || null;
 
 		await this.postgresqlService.getWriterDataSource().transaction(async (manager) => {
+			if (previousEndpointId && previousEndpointId !== endpointId) {
+				await manager.delete(PsEndpointIdIp, { endpoint: previousEndpointId });
+				await manager.delete(PsEndpoint, { id: previousEndpointId });
+				await manager.delete(PsAor, { id: previousEndpointId });
+			}
+
 			await manager.delete(PsEndpointIdIp, { endpoint: endpointId });
 
 			if (input.authMode === 'credentials') {
 				const auth = new PsAuth();
 				auth.id = authId;
 				auth.authType = 'userpass';
-				auth.username = input.username ?? null;
+				auth.username = input.username?.trim() ?? null;
 				auth.password = input.password ?? null;
 				await manager.save(PsAuth, auth);
 			} else {
@@ -179,6 +195,11 @@ export class PjsipRealtimeRepository {
 				await manager.save(PsEndpointIdIp, identifyRows);
 			}
 		});
+	}
+
+	async endpointIdExists(endpointId: string): Promise<boolean> {
+		const existing = await this.psEndpointRepository.findById(endpointId);
+		return existing !== null;
 	}
 
 	async deleteTrunk(endpointId: string, trunkUuid: string): Promise<void> {

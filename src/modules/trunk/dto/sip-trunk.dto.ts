@@ -10,7 +10,7 @@ const identifyIpSchema = z
 const baseTrunkFields = {
 	name: z.string().trim().min(1).max(128),
 	authMode: z.nativeEnum(SipTrunkAuthMode),
-	username: z.string().trim().min(1).max(80).nullable().optional(),
+	username: z.string().trim().min(1).max(40).nullable().optional(),
 	password: z.string().min(1).max(128).nullable().optional(),
 	enabled: z.boolean().optional(),
 	identifyIps: z.array(identifyIpSchema).optional(),
@@ -42,6 +42,12 @@ const trunkAuthRefinement = (
 			message: 'username is required for credentials auth mode',
 			path: ['username'],
 		});
+	} else if (data.username.trim().length > 40) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			message: 'username must be at most 40 characters for Asterisk realtime',
+			path: ['username'],
+		});
 	}
 	if (!data.password?.trim()) {
 		ctx.addIssue({
@@ -62,7 +68,7 @@ export const UpdateSipTrunkDto = z
 	.object({
 		name: z.string().trim().min(1).max(128).optional(),
 		authMode: z.nativeEnum(SipTrunkAuthMode).optional(),
-		username: z.string().trim().min(1).max(80).nullable().optional(),
+		username: z.string().trim().min(1).max(40).nullable().optional(),
 		password: z.string().min(1).max(128).nullable().optional(),
 		enabled: z.boolean().optional(),
 		identifyIps: z.array(identifyIpSchema).optional(),

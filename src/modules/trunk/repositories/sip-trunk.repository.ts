@@ -46,4 +46,12 @@ export class SipTrunkRepository {
 			order: { updatedAt: 'DESC' },
 		});
 	}
+
+	findByUsername(username: string): Promise<SipTrunk | null> {
+		return this.readerRepository.findOne({ where: { username } });
+	}
+
+	findByPjsipEndpointId(pjsipEndpointId: string): Promise<SipTrunk | null> {
+		return this.readerRepository.findOne({ where: { pjsipEndpointId } });
+	}
 }

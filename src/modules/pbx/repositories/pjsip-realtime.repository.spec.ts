@@ -80,10 +80,13 @@ describe('PjsipRealtimeRepository upsertTrunk / deleteTrunk', () => {
 		expect(deleted.length).toBeGreaterThan(0);
 	});
 
-	it('links auth row for credentials mode', async () => {
+	it('links auth row for credentials mode with endpoint id equal to username', async () => {
 		const saved: { entity: unknown; value: unknown }[] = [];
+		const deleted: { entity: unknown; criteria: unknown }[] = [];
 		const manager = {
-			delete: jest.fn(async () => undefined),
+			delete: jest.fn(async (entity: unknown, criteria: unknown) => {
+				deleted.push({ entity, criteria });
+			}),
 			save: jest.fn(async (entity: unknown, value: unknown) => {
 				saved.push({ entity, value });
 				return value;
@@ -102,13 +105,13 @@ describe('PjsipRealtimeRepository upsertTrunk / deleteTrunk', () => {
 		);
 
 		const trunkUuid = '11111111-1111-1111-1111-111111111111';
-		const endpointId = PjsipRealtimeRepository.trunkEndpointId(trunkUuid);
+		const username = 'trunkuser';
 
 		await repo.upsertTrunk(
 			{
-				endpointId,
+				endpointId: username,
 				authMode: 'credentials',
-				username: 'trunkuser',
+				username,
 				password: 'secret',
 				identifyMatches: [],
 				enabled: true,
@@ -117,15 +120,70 @@ describe('PjsipRealtimeRepository upsertTrunk / deleteTrunk', () => {
 		);
 
 		const authSave = saved.find((entry) => {
-			const value = entry.value as { username?: string; password?: string };
-			return value?.username === 'trunkuser' && value?.password === 'secret';
+			const value = entry.value as { id?: string; username?: string; password?: string };
+			return (
+				value?.username === username &&
+				value?.password === 'secret' &&
+				value?.id === PjsipRealtimeRepository.trunkAuthId(trunkUuid)
+			);
 		});
 		expect(authSave).toBeDefined();
 
 		const endpointSave = saved.find((entry) => {
-			const value = entry.value as { auth?: string; context?: string };
-			return value?.context === 'from-trunk' && typeof value?.auth === 'string';
+			const value = entry.value as { id?: string; auth?: string; context?: string; aors?: string };
+			return (
+				value?.id === username &&
+				value?.aors === username &&
+				value?.context === 'from-trunk' &&
+				value?.auth === PjsipRealtimeRepository.trunkAuthId(trunkUuid)
+			);
 		});
 		expect(endpointSave).toBeDefined();
+	});
+
+	it('deletes previous endpoint rows when credentials endpoint id changes', async () => {
+		const deleted: { criteria: unknown }[] = [];
+		const manager = {
+			delete: jest.fn(async (_entity: unknown, criteria: unknown) => {
+				deleted.push({ criteria });
+			}),
+			save: jest.fn(async (_entity: unknown, value: unknown) => value),
+			findOne: jest.fn(),
+		};
+		const repo = new PjsipRealtimeRepository(
+			{
+				getWriterDataSource: () => ({
+					transaction: async (fn: (m: typeof manager) => Promise<void>) => fn(manager),
+				}),
+			} as never,
+			{} as never,
+			{} as never,
+			{} as never,
+		);
+
+		const trunkUuid = '22222222-2222-2222-2222-222222222222';
+		const previousEndpointId = PjsipRealtimeRepository.trunkEndpointId(trunkUuid);
+		const username = 'new-trunk-user';
+
+		await repo.upsertTrunk(
+			{
+				endpointId: username,
+				authMode: 'credentials',
+				username,
+				password: 'secret',
+				identifyMatches: [],
+				enabled: true,
+				previousEndpointId,
+			},
+			trunkUuid,
+		);
+
+		expect(deleted.some((entry) => entry.criteria === previousEndpointId ||
+			(typeof entry.criteria === 'object' &&
+				entry.criteria !== null &&
+				('id' in entry.criteria
+					? (entry.criteria as { id: string }).id === previousEndpointId
+					: (entry.criteria as { endpoint?: string }).endpoint === previousEndpointId)),
+		)).toBe(true);
 	});
 });

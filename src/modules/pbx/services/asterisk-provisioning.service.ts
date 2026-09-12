@@ -42,6 +42,10 @@ export class AsteriskProvisioningService {
 		this.logger.log(`Removed PJSIP trunk endpoint ${endpointId}`);
 	}
 
+	async endpointIdExists(endpointId: string): Promise<boolean> {
+		return this.pjsipRealtimeRepository.endpointIdExists(endpointId);
+	}
+
 	async syncAllExtensions(): Promise<{ synced: number; errors: number }> {
 		const extensions = await this.extensionRepository.getExtensions();
 		let synced = 0;

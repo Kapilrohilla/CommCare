@@ -7,7 +7,10 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { AsteriskProvisioningService } from 'src/modules/pbx/services/asterisk-provisioning.service';
-import { PjsipRealtimeRepository } from 'src/modules/pbx/repositories/pjsip-realtime.repository';
+import {
+	PJSIP_ID_MAX_LENGTH,
+	PjsipRealtimeRepository,
+} from 'src/modules/pbx/repositories/pjsip-realtime.repository';
 import { AuthContext } from 'src/shared/types/auth.types';
 import { SipTrunkAuthMode } from '../constants/sip-trunk.constant';
 import {
@@ -38,16 +41,20 @@ export class SipTrunkService {
 		trunk.name = dto.name;
 		trunk.authMode = dto.authMode;
 		trunk.username =
-			dto.authMode === SipTrunkAuthMode.Credentials ? (dto.username ?? null) : null;
+			dto.authMode === SipTrunkAuthMode.Credentials
+				? (dto.username?.trim() ?? null)
+				: null;
 		trunk.password =
 			dto.authMode === SipTrunkAuthMode.Credentials ? (dto.password ?? null) : null;
 		trunk.enabled = dto.enabled ?? true;
-		trunk.pjsipEndpointId = PjsipRealtimeRepository.trunkEndpointId(id);
+		trunk.pjsipEndpointId = this.resolveEndpointId(trunk.authMode, id, trunk.username);
 		trunk.identifyIps = (dto.identifyIps ?? []).map((match) => {
 			const row = new SipTrunkIdentifyIp();
 			row.match = match;
 			return row;
 		});
+
+		await this.assertEndpointIdentityAvailable(trunk.pjsipEndpointId, null);
 
 		const saved = await this.sipTrunkRepository.create(trunk);
 		await this.syncAsterisk(saved);
@@ -68,6 +75,7 @@ export class SipTrunkService {
 		dto: UpdateSipTrunkDto,
 	): Promise<SipTrunk> {
 		const trunk = await this.getTrunkForTenant(auth, id);
+		const previousEndpointId = trunk.pjsipEndpointId;
 
 		if (dto.name !== undefined) {
 			trunk.name = dto.name;
@@ -79,7 +87,7 @@ export class SipTrunkService {
 			trunk.enabled = dto.enabled;
 		}
 		if (dto.username !== undefined) {
-			trunk.username = dto.username;
+			trunk.username = dto.username?.trim() ?? null;
 		}
 		if (dto.password !== undefined) {
 			trunk.password = dto.password;
@@ -96,6 +104,8 @@ export class SipTrunkService {
 		if (trunk.authMode === SipTrunkAuthMode.Ip) {
 			trunk.username = null;
 			trunk.password = null;
+		} else if (trunk.username) {
+			trunk.username = trunk.username.trim();
 		}
 
 		this.assertAuthFields(trunk.authMode, {
@@ -104,8 +114,19 @@ export class SipTrunkService {
 			identifyIps: (trunk.identifyIps ?? []).map((row) => row.match),
 		});
 
+		trunk.pjsipEndpointId = this.resolveEndpointId(
+			trunk.authMode,
+			trunk.id,
+			trunk.username,
+		);
+
+		await this.assertEndpointIdentityAvailable(trunk.pjsipEndpointId, trunk.id);
+
 		const saved = await this.sipTrunkRepository.save(trunk);
-		await this.syncAsterisk(saved);
+		await this.syncAsterisk(
+			saved,
+			previousEndpointId !== saved.pjsipEndpointId ? previousEndpointId : undefined,
+		);
 		return saved;
 	}
 
@@ -120,11 +141,27 @@ export class SipTrunkService {
 
 	async syncTrunkAsterisk(auth: AuthContext, id: string): Promise<SipTrunk> {
 		const trunk = await this.getTrunkForTenant(auth, id);
-		await this.syncAsterisk(trunk);
+		const previousEndpointId = trunk.pjsipEndpointId;
+		trunk.pjsipEndpointId = this.resolveEndpointId(
+			trunk.authMode,
+			trunk.id,
+			trunk.username,
+		);
+		if (trunk.pjsipEndpointId !== previousEndpointId) {
+			await this.assertEndpointIdentityAvailable(trunk.pjsipEndpointId, trunk.id);
+			await this.sipTrunkRepository.save(trunk);
+		}
+		await this.syncAsterisk(
+			trunk,
+			previousEndpointId !== trunk.pjsipEndpointId ? previousEndpointId : undefined,
+		);
 		return trunk;
 	}
 
-	private async syncAsterisk(trunk: SipTrunk): Promise<void> {
+	private async syncAsterisk(
+		trunk: SipTrunk,
+		previousEndpointId?: string,
+	): Promise<void> {
 		const matches = (trunk.identifyIps ?? []).map((row) => row.match);
 		try {
 			await this.asteriskProvisioningService.provisionTrunk(trunk.id, {
@@ -134,6 +171,7 @@ export class SipTrunkService {
 				password: trunk.password,
 				identifyMatches: matches,
 				enabled: trunk.enabled,
+				previousEndpointId,
 			});
 		} catch (error) {
 			this.logger.error(
@@ -143,6 +181,62 @@ export class SipTrunkService {
 			);
 			throw error;
 		}
+	}
+
+	private resolveEndpointId(
+		authMode: SipTrunkAuthMode,
+		trunkUuid: string,
+		username: string | null,
+	): string {
+		if (authMode === SipTrunkAuthMode.Credentials) {
+			const trimmed = username?.trim() ?? '';
+			if (!trimmed) {
+				throw new BadRequestException(
+					'username is required for credentials auth mode',
+				);
+			}
+			if (trimmed.length > PJSIP_ID_MAX_LENGTH) {
+				throw new BadRequestException(
+					`username must be at most ${PJSIP_ID_MAX_LENGTH} characters`,
+				);
+			}
+			return trimmed;
+		}
+		return PjsipRealtimeRepository.trunkEndpointId(trunkUuid);
+	}
+
+	private async assertEndpointIdentityAvailable(
+		endpointId: string,
+		excludeTrunkId: string | null,
+	): Promise<void> {
+		const byEndpoint = await this.sipTrunkRepository.findByPjsipEndpointId(endpointId);
+		if (byEndpoint && byEndpoint.id !== excludeTrunkId) {
+			throw new BadRequestException(
+				`PJSIP endpoint id '${endpointId}' is already used by another trunk`,
+			);
+		}
+
+		const byUsername = await this.sipTrunkRepository.findByUsername(endpointId);
+		if (byUsername && byUsername.id !== excludeTrunkId) {
+			throw new BadRequestException(
+				`SIP username '${endpointId}' is already used by another trunk`,
+			);
+		}
+
+		const existsInAsterisk =
+			await this.asteriskProvisioningService.endpointIdExists(endpointId);
+		if (!existsInAsterisk) {
+			return;
+		}
+
+		// Allow re-provisioning when this trunk already owns the endpoint id.
+		if (excludeTrunkId && byEndpoint?.id === excludeTrunkId) {
+			return;
+		}
+
+		throw new BadRequestException(
+			`PJSIP endpoint id '${endpointId}' is already provisioned in Asterisk`,
+		);
 	}
 
 	private async getTrunkForTenant(
@@ -172,9 +266,15 @@ export class SipTrunkService {
 			return;
 		}
 
-		if (!fields.username?.trim() || !fields.password?.trim()) {
+		const username = fields.username?.trim() ?? '';
+		if (!username || !fields.password?.trim()) {
 			throw new BadRequestException(
 				'username and password are required for credentials auth mode',
+			);
+		}
+		if (username.length > PJSIP_ID_MAX_LENGTH) {
+			throw new BadRequestException(
+				`username must be at most ${PJSIP_ID_MAX_LENGTH} characters`,
 			);
 		}
 	}
