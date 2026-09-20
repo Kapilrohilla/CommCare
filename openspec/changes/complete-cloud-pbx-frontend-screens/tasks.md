@@ -4,7 +4,7 @@
 - [x] 1.2 Split the current application shell into `AppShell.vue`, `Sidebar.vue`, `ScreenHeader.vue`, and shared state/action primitives; verify each component has an isolated render or unit test.
 - [x] 1.3 Implement the fixed desktop rail and independently scrolling main content container, including focus behavior and reduced-width breakpoints; verify desktop scroll leaves the rail stationary and `scrollWidth` does not exceed the viewport.
 - [x] 1.4 Group sidebar navigation into Command center, Calling, Configuration, and Integrations & system with permission metadata and tenant/account context; verify active links and mobile drawer behavior in desktop/mobile Playwright tests.
-- [ ] 1.5 Create one route-level file for every planned screen and update route metadata/page titles; verify the route map resolves each view without falling back to a monolithic workspace component.
+- [x] 1.5 Create one route-level file for every planned screen and update route metadata/page titles; verify the route map resolves each view without falling back to a monolithic workspace component.
 - [x] 1.6 Commit the shell/navigation phase after typecheck, unit tests, browser tests, and responsive screenshot checks pass.
 
 ## 2. Shared screen infrastructure
@@ -17,7 +17,7 @@
 
 - [ ] 3.1 Implement dedicated sign-in and OTP views with request, verify, resend, expiry, invalid, locked, loading, success, and logout states using the confirmed backend auth contract; verify token/session tests do not request tenant data before authentication.
 - [ ] 3.2 Implement the first-run tenant setup checklist for profile, users, extensions, trunk, route, IVR/recording, test call, and webhook steps; verify progress reflects backend-confirmed completion and shows blockers instead of optimistic completion.
-- [ ] 3.3 Implement the overview screen with tenant-scoped operational metrics, recent calls, extension availability, inbound/trunk status, webhook attention, and place-call action; verify unavailable metrics render honest unknown states without invented analytics.
+- [x] 3.3 Implement the overview screen with tenant-scoped operational metrics, recent calls, extension availability, inbound/trunk status, webhook attention, and place-call action; verify unavailable metrics render honest unknown states without invented analytics.
 
 ## 4. Calling screens
 
@@ -47,7 +47,7 @@
 
 ## 7. Backend gap assessment and additions
 
-- [ ] 7.1 Compare every screen action with current backend controllers, DTOs, guards, entities, and response envelopes; record each action as existing, read-only fallback, or confirmed gap before changing backend code.
+- [x] 7.1 Compare every screen action with current backend controllers, DTOs, guards, entities, and response envelopes; record each action as existing, read-only fallback, or confirmed gap before changing backend code.
 - [ ] 7.2 Add only confirmed minimal APIs for production authentication, call history/detail, recordings, webhook registry/logs, health detail, or other required gaps, reusing existing tenant guards, validation pipes, response service, and entity services; verify focused backend success, validation, unauthorized, and tenant-isolation tests.
 - [ ] 7.3 Wire approved backend additions into frontend services and replace only the corresponding fixtures; verify no frontend module calls Asterisk or duplicates provisioning/orchestration logic.
 - [ ] 7.4 Commit each approved backend-gap phase separately with its frontend contract tests and backend tests green.

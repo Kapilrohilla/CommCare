@@ -14,17 +14,19 @@ The API base URL is configurable with `VITE_API_BASE_URL` and defaults to `http:
 
 ## Screen inventory
 
-The current product shell maps the Cloud PBX handoff and Stitch direction to these routes:
+The fixed desktop rail groups screens as Command center, Calling, Configuration, and Integrations & system. The mobile rail becomes a drawer. Each route has its own file under `src/views/`:
 
 | Route | Product area | Current state |
 | --- | --- | --- |
-| `/` | Overview, live status, volume, recent activity | Implemented with deterministic preview data |
-| `/calls` | Calling surface and call activity | Implemented with local interaction state; API adapter ready |
-| `/people` | People and extensions | Shell and empty module state; backend mapping pending |
-| `/inbound` | Inbound routes and IVR | Shell and empty module state; backend mapping pending |
-| `/trunks` | SIP trunk configuration | Shell and empty module state; backend mapping pending |
-| `/webhooks` | Webhook configuration and delivery logs | Shell and empty module state; backend mapping pending |
-| `/health` | Service and telephony health | Shell and empty module state; backend mapping pending |
+| `/` | Overview, live status, volume, recent activity | `OverviewView.vue`, operational preview states |
+| `/setup` | First-run tenant setup checklist | `SetupChecklistView.vue`, explicit blockers |
+| `/dialer` | Async click-to-call surface | `DialerView.vue`, backend adapter wired |
+| `/calls`, `/calls/:id` | Calls list and detail | `CallsView.vue`, `CallDetailView.vue` |
+| `/people`, `/extensions` | People and extension inventory | `PeopleView.vue`, `ExtensionsView.vue` |
+| `/inbound`, `/ivr` | Inbound routes and IVR menus | `InboundRoutesView.vue`, `IvrMenusView.vue` |
+| `/recordings`, `/trunks` | Recording library and SIP trunks | `RecordingsView.vue`, `SipTrunksView.vue` |
+| `/webhooks`, `/webhook-logs` | Webhook registry and delivery logs | `WebhooksView.vue`, `WebhookLogsView.vue` |
+| `/health`, `/settings` | System health and workspace settings | `SystemHealthView.vue`, `SettingsView.vue` |
 
 Visual motifs carried from the Stitch brief: a quiet operations rail, ink-and-amber status language, dense scan-friendly tables, compact monospace metadata, generous white surfaces, and a responsive mobile drawer. The current implementation uses a Vue-compatible icon library and product tokens rather than a pixel-perfect export.
 
@@ -36,13 +38,13 @@ The frontend must use backend REST resources as the source of truth and never ca
 - `POST /pbx/trunks/:id/sync-asterisk`
 - `POST /pbx/extensions/sync-asterisk`
 
-Authentication, login/refresh, call activity, recordings, users/extensions, inbound/IVR, webhooks, and health routes must be confirmed from backend controllers before wiring their views. The client normalizes `{ data }` response envelopes and maps unauthorized/network failures through `src/lib/api.ts`.
+The client normalizes `{ data }` response envelopes and maps unauthorized/network failures through `src/lib/api.ts`. Feature adapters live under `src/lib/services/` and never call Asterisk directly.
 
 ### Gap assessment
 
 - **Existing:** SIP trunk CRUD and Asterisk sync, tenant extensions read/list and assignment actions, IVR CRUD, inbound-route CRUD, click-to-call, token refresh, logout, and current-user lookup.
-- **Read-only fallback:** The current overview and call activity preview can render deterministic data while call-history and recording read endpoints are confirmed.
-- **Missing or unresolved:** A browser-facing password-login endpoint, canonical call-history/recording list endpoints, webhook resource endpoints, and a health endpoint contract. These must be confirmed or added as small backend contracts before the corresponding production views submit data.
+- **Read-only fallback:** Overview, configuration inventory, setup checklist, and integration tables use deterministic fixtures until live list/detail contracts are confirmed.
+- **Missing or unresolved:** A browser-facing password-login endpoint, canonical call-history/detail and recording list endpoints, webhook registry/log endpoints, and a detailed health contract. These are the only planned backend additions; each requires existing JWT/tenant guards, Zod validation, `ResponseService`, and focused tests before production wiring.
 
 The current sign-in screen is a visual/session-boundary preview and must be connected to the backend's real authentication flow before production deployment; it does not claim to authenticate against the API.
 
