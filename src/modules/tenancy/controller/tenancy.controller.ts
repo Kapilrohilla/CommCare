@@ -22,6 +22,13 @@ export class TenancyController {
 		return ResponseService.success('Tenant created and assigned to user', data);
 	}
 
+	@Get('me')
+	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
+	async getMyTenancy(@CurrentAuth() auth: AuthContext) {
+		const data = await this.tenancyService.getMyTenancy(auth);
+		return ResponseService.success('Tenant fetched', data);
+	}
+
 	@Post()
 	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
 	async createTenancy(@Body(new ZodValidationPipe(CreateTenancyDto)) body: CreateTenancyDto) {

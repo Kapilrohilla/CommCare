@@ -11,9 +11,12 @@ import { env } from 'src/config/env.config';
 import { Environment } from 'src/constants/environmentConstants';
 import { TenancyService } from 'src/modules/tenancy/services/tenancy.service';
 import type { AuthContext } from 'src/shared/types/auth.types';
+import { HashService } from 'src/shared/utils/services/hash.service';
 import {
 	CreateUserDto,
 	CreateVisitorInput,
+	PasswordLoginDto,
+	PasswordRegisterDto,
 	SendOtpDto,
 	VerifyOtpDto,
 } from '../dto/auth.dto';
@@ -64,6 +67,65 @@ export class AuthService {
 			identityId: identity.id,
 			requiresOtpVerification: !identity.identityVerifiedAt,
 		};
+	}
+
+	async registerWithPassword(dto: PasswordRegisterDto, visitorId: string) {
+		const existing = await this.identityService.findByIdentifier(dto.identifierType, dto.identifier);
+		if (existing?.userId) {
+			throw new ConflictException('Account already exists for this identifier');
+		}
+
+		const identity =
+			existing ??
+			(await this.identityService.findOrCreateIdentity(dto.identifierType, dto.identifier));
+
+		const secretHash = await HashService.hash(dto.password);
+		await this.identityService.setSecretHash(identity, secretHash);
+
+		const user = await this.userService.createUser(dto.name);
+		await this.identityService.linkToUser(identity, user.id);
+		await this.identityService.markVerified(identity);
+
+		return this.issueSessionForUser({
+			visitorId,
+			userId: user.id,
+			identityId: identity.id,
+			tenantId: user.tenantId,
+			userName: user.name,
+		});
+	}
+
+	async loginWithPassword(dto: PasswordLoginDto, visitorId: string) {
+		const identity = await this.identityService.findByIdentifier(dto.identifierType, dto.identifier);
+		if (!identity?.userId || !identity.secretHash) {
+			throw new UnauthorizedException('Invalid email or password');
+		}
+
+		if (this.identityService.isLocked(identity)) {
+			throw new ForbiddenException('Account temporarily locked. Try again later.');
+		}
+
+		const valid = await HashService.compare(dto.password, identity.secretHash);
+		if (!valid) {
+			await this.identityService.recordFailedAttempt(identity);
+			await this.authEventService.logLogin(identity.userId, identity.id, null, false);
+			throw new UnauthorizedException('Invalid email or password');
+		}
+
+		const user = await this.userService.findById(identity.userId);
+		if (!user) {
+			throw new UnauthorizedException('Invalid email or password');
+		}
+
+		await this.identityService.markVerified(identity);
+
+		return this.issueSessionForUser({
+			visitorId,
+			userId: user.id,
+			identityId: identity.id,
+			tenantId: user.tenantId,
+			userName: user.name,
+		});
 	}
 
 	async sendOtp(dto: SendOtpDto) {
@@ -170,6 +232,33 @@ export class AuthService {
 			tenant: tenant ? { id: tenant.id, name: tenant.name } : null,
 			requiresTenant: !user.tenantId,
 			sessionId: auth.sessionId,
+		};
+	}
+
+	private async issueSessionForUser(input: {
+		visitorId: string;
+		userId: string;
+		identityId: string;
+		tenantId: string | null;
+		userName: string;
+	}) {
+		const { tokens } = await this.sessionService.createSession({
+			visitorId: input.visitorId,
+			userId: input.userId,
+			identityId: input.identityId,
+			tenantId: input.tenantId,
+		});
+
+		await this.authEventService.logLogin(input.userId, input.identityId, input.tenantId, true);
+		await this.authEventService.logSessionCreated(input.userId, input.identityId, input.tenantId);
+
+		const tenant = input.tenantId ? await this.tenancyService.findByIdOrNull(input.tenantId) : null;
+
+		return {
+			user: { id: input.userId, name: input.userName, tenantId: input.tenantId },
+			tenant: tenant ? { id: tenant.id, name: tenant.name } : null,
+			requiresTenant: !input.tenantId,
+			...tokens,
 		};
 	}
 

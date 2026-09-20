@@ -52,6 +52,11 @@ export class IdentityService {
 		return this.identityRepository.save(identity);
 	}
 
+	async setSecretHash(identity: IdentityEntity, secretHash: string): Promise<IdentityEntity> {
+		identity.secretHash = secretHash;
+		return this.identityRepository.save(identity);
+	}
+
 	isLocked(identity: IdentityEntity): boolean {
 		return identity.lockedUntil !== null && identity.lockedUntil > new Date();
 	}

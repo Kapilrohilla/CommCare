@@ -10,6 +10,8 @@ import type { AuthContext } from 'src/shared/types/auth.types';
 import {
 	CreateUserDto,
 	CreateVisitorDto,
+	PasswordLoginDto,
+	PasswordRegisterDto,
 	SendOtpDto,
 	VerifyOtpDto,
 } from '../dto/auth.dto';
@@ -34,6 +36,26 @@ export class AuthController {
 	async createUser(@Body(new ZodValidationPipe(CreateUserDto)) body: CreateUserDto) {
 		const data = await this.authService.createUser(body);
 		return ResponseService.success('User account created', data);
+	}
+
+	@Post('password/register')
+	@JwtAuthGuard(TOKEN_TYPE.VISITOR)
+	async registerWithPassword(
+		@Body(new ZodValidationPipe(PasswordRegisterDto)) body: PasswordRegisterDto,
+		@CurrentVisitor() visitor: { visitorId: string },
+	) {
+		const data = await this.authService.registerWithPassword(body, visitor.visitorId);
+		return ResponseService.success('Account created', data);
+	}
+
+	@Post('password/login')
+	@JwtAuthGuard(TOKEN_TYPE.VISITOR)
+	async loginWithPassword(
+		@Body(new ZodValidationPipe(PasswordLoginDto)) body: PasswordLoginDto,
+		@CurrentVisitor() visitor: { visitorId: string },
+	) {
+		const data = await this.authService.loginWithPassword(body, visitor.visitorId);
+		return ResponseService.success('Logged in', data);
 	}
 
 	@Post('otp/send')

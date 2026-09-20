@@ -1,7 +1,22 @@
 import { request } from '../api'
 import type { Extension, TenantUser } from './types'
+import type { AuthSessionResult } from '../../stores/session'
+
+export type Tenant = {
+  id: string
+  name: string
+}
 
 export const tenancyService = {
+  getMyTenant: () => request<Tenant>('/tenancy/me', { auth: 'access' }),
+
+  createMyTenant: (name: string) =>
+    request<AuthSessionResult>('/tenancy/me', {
+      method: 'POST',
+      auth: 'access',
+      body: JSON.stringify({ name }),
+    }),
+
   extensions: (token: string) => request<Extension[]>('/tenancy/extension/', { token }),
   myExtensions: (token: string) => request<Extension[]>('/tenancy/extension/me', { token }),
   users: (token: string) => request<TenantUser[]>('/tenancy/extension/users', { token }),

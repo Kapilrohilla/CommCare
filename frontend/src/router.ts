@@ -24,8 +24,8 @@ const protectedRoute = (path: string, name: string, title: string, component: ob
 const router = createRouter({
     history: createWebHistory(),
     routes: [
-        { path: '/sign-in', name: 'sign-in', component: SignInView },
-        { path: '/otp', name: 'otp', component: OtpView },
+        { path: '/sign-in', name: 'sign-in', component: SignInView, meta: { title: 'Sign in' } },
+        { path: '/otp', name: 'otp', component: OtpView, meta: { title: 'Verify OTP' } },
         {
             path: '/', component: AppShell, meta: { requiresAuth: true },
             children: [
@@ -52,8 +52,10 @@ const router = createRouter({
 
 router.beforeEach((to) => {
     const session = useSessionStore()
-    if (to.meta.requiresAuth && !session.isAuthenticated) return { name: 'sign-in', query: { redirect: to.fullPath } }
-    if (to.name === 'sign-in' && session.isAuthenticated) return '/'
+    if (to.meta.requiresAuth && !session.isAuthenticated) {
+        return { name: 'sign-in', query: { redirect: to.fullPath } }
+    }
+    if ((to.name === 'sign-in' || to.name === 'otp') && session.isAuthenticated) return '/'
     const roles = to.meta.roles as string[] | undefined
     if (roles && session.current?.role && !roles.includes(session.current.role.toLowerCase())) return '/'
 })

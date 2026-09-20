@@ -27,6 +27,19 @@ export const CreateUserDto = z.object({
 	name: z.string().min(1).max(255),
 });
 
+export const PasswordRegisterDto = z.object({
+	identifier: z.string().email().max(255),
+	identifierType: z.literal(IdentifierType.EMAIL),
+	password: z.string().min(8).max(128),
+	name: z.string().min(1).max(255),
+});
+
+export const PasswordLoginDto = z.object({
+	identifier: z.string().email().max(255),
+	identifierType: z.literal(IdentifierType.EMAIL),
+	password: z.string().min(1).max(128),
+});
+
 export type CreateVisitorDto = z.infer<typeof CreateVisitorDto>;
 export type CreateVisitorInput = CreateVisitorDto & {
 	userAgent?: string | null;
@@ -35,3 +48,5 @@ export type CreateVisitorInput = CreateVisitorDto & {
 export type SendOtpDto = z.infer<typeof SendOtpDto>;
 export type VerifyOtpDto = z.infer<typeof VerifyOtpDto>;
 export type CreateUserDto = z.infer<typeof CreateUserDto>;
+export type PasswordRegisterDto = z.infer<typeof PasswordRegisterDto>;
+export type PasswordLoginDto = z.infer<typeof PasswordLoginDto>;
