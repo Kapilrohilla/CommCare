@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { In } from 'typeorm';
 import { BaseRepository } from 'src/infra/database/connectors/baseRepository';
 import {
 	DB_CONNECTION_READER,
@@ -49,6 +50,12 @@ export class InboundRouteRepository {
 	async getEnabledBySourceValue(sourceValue: string): Promise<InboundRoute | null> {
 		return this.readerRepository.findOne({
 			where: { sourceValue, enabled: true },
+		});
+	}
+
+	async getEnabledBySourceValues(sourceValues: string[]): Promise<InboundRoute | null> {
+		return this.readerRepository.findOne({
+			where: { sourceValue: In(sourceValues), enabled: true },
 		});
 	}
 
