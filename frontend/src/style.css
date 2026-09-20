@@ -194,6 +194,19 @@ th:last-child, td:last-child { text-align: right; }
 .dialer-help p { color: #aebbb5; font-size: 13px; line-height: 1.7; }
 .dialer-steps { display: grid; gap: 9px; margin-top: 28px; font: 11px 'DM Mono'; color: #aebbb5; }
 .dialer-steps b { display: inline-grid; place-items: center; width: 25px; height: 25px; margin-right: 7px; border-radius: 6px; background: #3a4442; color: #e2a534; font-weight: 500; }
+.setup-layout { display: grid; grid-template-columns: minmax(220px, .65fr) minmax(0, 1.35fr); gap: 18px; }
+.setup-summary { align-self: start; padding: 24px; }
+.setup-summary > strong { display: block; margin: 12px 0 6px; font: 600 48px 'Space Grotesk'; letter-spacing: -2px; }
+.setup-summary > p { color: var(--muted); font-size: 12px; line-height: 1.6; margin-top: 12px; }
+.setup-warning { display: flex; gap: 8px; align-items: flex-start; margin-top: 24px; padding: 11px; border-radius: 7px; background: #fcf8ed; color: var(--amber-dark); font-size: 11px; line-height: 1.5; }
+.setup-list { padding: 9px 22px; }
+.setup-step { display: flex; align-items: center; gap: 12px; padding: 17px 0; border-bottom: 1px solid #eef0ed; }
+.setup-step:last-child { border-bottom: 0; }
+.setup-step__check { display: grid; place-items: center; width: 28px; height: 28px; flex: none; border: 1px solid #cfd7cf; border-radius: 50%; color: var(--muted); background: #fff; }
+.setup-step--done .setup-step__check { border-color: var(--green); color: #fff; background: var(--green); }
+.setup-step__copy { flex: 1; min-width: 0; }
+.setup-step__copy strong { font-size: 13px; }
+.setup-step__copy p { color: var(--muted); font-size: 11px; margin-top: 4px; }
 .page-enter { animation: enter .35s ease both; }
 @keyframes enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 
@@ -269,4 +282,5 @@ th:last-child, td:last-child { text-align: right; }
   .auth-form { padding: 38px 24px; }
   .coming-soon { padding: 35px 22px; margin: 25px auto; }
   .dialer-layout { grid-template-columns: 1fr; }
+  .setup-layout { grid-template-columns: 1fr; }
 }
