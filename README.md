@@ -2,6 +2,8 @@
 
 CommCare is a multi-tenant backend that sits **above Asterisk**. It exposes authenticated REST APIs, call orchestration (click2call, IVR, inbound routing), extension management, outbound webhooks, and async event processing — while Asterisk handles SIP, media, and telephony primitives.
 
+For the UI product brief and Stitch-ready design handoff, see [docs/UI-DESIGN-HANDOFF.md](docs/UI-DESIGN-HANDOFF.md).
+
 CommCare does not replace Asterisk. It orchestrates and integrates with it through **ARI** and **AMI/CDR**, provisioning PJSIP extensions via **PostgreSQL realtime** (`ps_*` tables — no `pjsip reload` per extension). Application state lives in PostgreSQL; telephony events flow through **Kafka → BullMQ** workers.
 
 ## Architecture

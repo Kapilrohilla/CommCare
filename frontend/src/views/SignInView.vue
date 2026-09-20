@@ -1,0 +1,11 @@
+<script setup lang="ts">
+import { ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ArrowRight, Command, LockKeyhole, Mail } from 'lucide-vue-next'
+import { useSessionStore } from '../stores/session'
+const email = ref('jordan@atlasfield.co'); const password = ref(''); const busy = ref(false); const route = useRoute(); const router = useRouter(); const session = useSessionStore()
+function submit() { busy.value = true; globalThis.setTimeout(() => { session.signIn(email.value); router.push(typeof route.query.redirect === 'string' ? route.query.redirect : '/'); busy.value = false }, 280) }
+</script>
+<template>
+  <main class="auth-page"><section class="auth-aside"><div class="auth-aside__grid" /><div class="auth-brand"><span class="brand__mark"><Command :size="17" /></span><strong>commcare</strong></div><div class="auth-aside__copy"><p class="eyebrow">Cloud PBX operations</p><h1>Make every conversation count.</h1><p>One calm place to route calls, manage your team, and keep your communications moving.</p></div><div class="auth-aside__footer"><span class="status-dot status-dot--good" /> All systems operational <span>·</span> v2.4.0</div></section><section class="auth-form"><div class="auth-form__inner"><div class="auth-form__header"><span class="overline">Welcome back</span><h2>Sign in to your workspace</h2><p>Use your CommCare account to continue to Atlas Field Ops.</p></div><form @submit.prevent="submit"><label>Email address<span class="field"><Mail :size="16" /><input v-model="email" type="email" autocomplete="email" required /></span></label><label>Password<span class="field"><LockKeyhole :size="16" /><input v-model="password" type="password" autocomplete="current-password" placeholder="Enter your password" required /></span></label><div class="form-meta"><label class="checkbox-label"><input type="checkbox" /> <span>Remember me</span></label><a href="#">Forgot password?</a></div><button class="button button--primary button--wide" type="submit" :disabled="busy">{{ busy ? 'Opening workspace...' : 'Continue' }} <ArrowRight :size="16" /></button></form><p class="auth-form__note">By continuing, you agree to your organization's security policy.</p></div></section></main>
+</template>
