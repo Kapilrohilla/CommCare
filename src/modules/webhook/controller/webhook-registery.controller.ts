@@ -19,17 +19,17 @@ export class WebhookRegistryController {
 		return this.webhookRegistryService.createWebhookRegistry(createWebhookRegistryDto, auth);
 	}
 
-	@Get('/:id')
-	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
-	async getWebhookRegistry(@Param('id') id: string) {
-		return this.webhookRegistryService.getWebhookRegistryById(id);
-	}
-
 	@Get('/tenant')
 	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
 	@RequireTenant()
 	async getWebhookRegistryByTenant(@CurrentAuth() auth: AuthContext): Promise<WebhookRegistry[]> {
 		return this.webhookRegistryService.getWebhookRegistryByTenantId(auth.tenantId!);
+	}
+
+	@Get('/:id')
+	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
+	async getWebhookRegistry(@Param('id') id: string) {
+		return this.webhookRegistryService.getWebhookRegistryById(id);
 	}
 
 	@Put('/:id')

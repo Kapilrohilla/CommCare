@@ -18,10 +18,10 @@ The fixed desktop rail groups screens as Command center, Calling, Configuration,
 
 | Route | Product area | Current state |
 | --- | --- | --- |
-| `/` | Overview, live status, volume, recent activity | `OverviewView.vue`, operational preview states |
+| `/` | Overview, live status, volume, recent activity | `OverviewView.vue`, wired to `GET /calls/dashboard` |
 | `/setup` | First-run tenant setup checklist | `SetupChecklistView.vue`, explicit blockers |
 | `/dialer` | Async click-to-call surface | `DialerView.vue`, backend adapter wired |
-| `/calls`, `/calls/:id` | Calls list and detail | `CallsView.vue`, `CallDetailView.vue` |
+| `/calls`, `/calls/:id` | Calls list and detail | `CallsView.vue` (wired to `GET /calls/tenant`), `CallDetailView.vue` placeholder |
 | `/people`, `/extensions` | People and extension inventory | `PeopleView.vue`, `ExtensionsView.vue` |
 | `/inbound`, `/ivr` | Inbound routes and IVR menus | `InboundRoutesView.vue`, `IvrMenusView.vue` |
 | `/recordings`, `/trunks` | Recording library and SIP trunks | `RecordingsView.vue`, `SipTrunksView.vue` |
@@ -34,17 +34,20 @@ Visual motifs carried from the Stitch brief: a quiet operations rail, ink-and-am
 
 The frontend must use backend REST resources as the source of truth and never call Asterisk directly. Confirmed routes currently include:
 
+- `GET /calls/dashboard`, `GET /calls/tenant`, `GET /calls/:id`
+- `POST /calls/click-to-call`, `POST /calls/dialer/session`
 - `POST /pbx/trunks`, `GET /pbx/trunks/tenant`, `GET /pbx/trunks/:id`, `PATCH /pbx/trunks/:id`, `DELETE /pbx/trunks/:id`
 - `POST /pbx/trunks/:id/sync-asterisk`
 - `POST /pbx/extensions/sync-asterisk`
+- `GET /system-recordings/tenant`
 
 The client normalizes `{ data }` response envelopes and maps unauthorized/network failures through `src/lib/api.ts`. Feature adapters live under `src/lib/services/` and never call Asterisk directly.
 
 ### Gap assessment
 
-- **Existing:** SIP trunk CRUD and Asterisk sync, tenant extensions read/list and assignment actions, IVR CRUD, inbound-route CRUD, click-to-call, token refresh, logout, and current-user lookup.
-- **Read-only fallback:** Overview, configuration inventory, setup checklist, and integration tables use deterministic fixtures until live list/detail contracts are confirmed.
-- **Missing or unresolved:** A browser-facing password-login endpoint, canonical call-history/detail and recording list endpoints, webhook registry/log endpoints, and a detailed health contract. These are the only planned backend additions; each requires existing JWT/tenant guards, Zod validation, `ResponseService`, and focused tests before production wiring.
+- **Existing:** Call dashboard/list/detail reads, SIP trunk CRUD and Asterisk sync, tenant extensions read/list and assignment actions, IVR CRUD, inbound-route CRUD, click-to-call, system recording list, token refresh, logout, and current-user lookup.
+- **Read-only fallback:** Setup checklist and some configuration tables still use fixtures until create/edit modals are wired.
+- **Missing or unresolved:** A browser-facing password-login endpoint, call-recording playback URL for browsers (telephony playback is internal), webhook registry/log adapters where not yet wired in views, and a detailed health contract. Planned backend additions require existing JWT/tenant guards, Zod validation, `ResponseService`, and focused tests before production wiring.
 
 The current sign-in screen is a visual/session-boundary preview and must be connected to the backend's real authentication flow before production deployment; it does not claim to authenticate against the API.
 

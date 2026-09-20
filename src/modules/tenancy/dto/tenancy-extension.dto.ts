@@ -18,9 +18,15 @@ export const CreateTenantUserDto = z.object({
 	extensionIds: z.array(z.string().uuid()).min(1),
 });
 
-export const UpdateTenantUserDto = z.object({
-	name: z.string().min(1).max(255),
-});
+export const UpdateTenantUserDto = z
+	.object({
+		name: z.string().min(1).max(255).optional(),
+		status: z.enum(['active', 'inactive']).optional(),
+	})
+	.strict()
+	.refine((value) => value.name !== undefined || value.status !== undefined, {
+		message: 'At least one of name or status is required',
+	});
 
 export const AssignExtensionsToUserDto = z.object({
 	userId: z.string().uuid(),

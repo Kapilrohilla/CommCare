@@ -28,4 +28,17 @@ export class UserService {
 		user.name = name;
 		return this.userRepository.save(user);
 	}
+
+	updateStatus(user: UserEntity, status: UserStatus): Promise<UserEntity> {
+		user.status = status;
+		return this.userRepository.save(user);
+	}
+
+	listByTenantId(tenantId: string): Promise<UserEntity[]> {
+		return this.userRepository.findByTenantId(tenantId);
+	}
+
+	deleteUser(user: UserEntity): Promise<void> {
+		return this.userRepository.deleteById(user.id);
+	}
 }

@@ -11,6 +11,7 @@ import { EventProducer } from 'src/infra/queue/services/event-producer.service';
 import { ExtensionService } from 'src/modules/pbx/services/extension.service';
 import { UserService } from 'src/modules/iam/services/user.service';
 import type { AuthContext } from 'src/shared/types/auth.types';
+import { UserStatus } from 'src/modules/iam/constants/user.constant';
 import {
 	AssignExtensionsToUserDto,
 	BulkExtensionAssignmentEventPayload,
@@ -85,11 +86,14 @@ export class TenancyExtensionService {
 		return this.extensionService.getExtensionsByUserId(userId);
 	}
 
-	async unassignExtension(extensionId: string, userId: string, tenantId: string | null) {
+	async unassignExtension(extensionId: string, tenantId: string | null) {
 		if (!tenantId) {
 			throw new ForbiddenException('Tenant setup required');
 		}
-		const extension = await this.extensionService.unassignExtensionFromUser(tenantId, extensionId, userId);
+		const extension = await this.extensionService.unassignExtensionForTenant(
+			tenantId,
+			extensionId,
+		);
 		await this.tenancyService.onExtensionUnassigned(tenantId);
 		return extension;
 	}
@@ -151,14 +155,74 @@ export class TenancyExtensionService {
 			throw new NotFoundException('User not found in this tenant');
 		}
 
-		const updatedUser = await this.userService.updateName(user, dto.name);
-		await this.extensionService.syncUserInfoOnExtensions(userId, {
-			name: dto.name,
-			userId,
-		});
+		let updatedUser = user;
+		if (dto.name !== undefined) {
+			updatedUser = await this.userService.updateName(updatedUser, dto.name);
+			await this.extensionService.syncUserInfoOnExtensions(userId, {
+				name: dto.name,
+				userId,
+			});
+		}
+		if (dto.status !== undefined) {
+			updatedUser = await this.userService.updateStatus(
+				updatedUser,
+				dto.status as UserStatus,
+			);
+		}
 
 		return {
-			user: { id: updatedUser.id, name: updatedUser.name, tenantId: updatedUser.tenantId },
+			user: {
+				id: updatedUser.id,
+				name: updatedUser.name,
+				tenantId: updatedUser.tenantId,
+				status: updatedUser.status,
+			},
 		};
+	}
+
+	async listTenantUsers(auth: AuthContext) {
+		if (!auth.tenantId) {
+			throw new ForbiddenException('Tenant setup required');
+		}
+		const users = await this.userService.listByTenantId(auth.tenantId);
+		const extensions = await this.extensionService.getExtensionsByTenantId(
+			auth.tenantId,
+		);
+		return users.map((user) => ({
+			id: user.id,
+			name: user.name,
+			tenantId: user.tenantId,
+			status: user.status,
+			createdAt: user.createdAt,
+			extensions: extensions
+				.filter((extension) => extension.userId === user.id)
+				.map((extension) => ({
+					id: extension.id,
+					extension: extension.extension,
+					status: extension.status,
+				})),
+		}));
+	}
+
+	async deleteTenantUser(auth: AuthContext, userId: string) {
+		if (!auth.tenantId) {
+			throw new ForbiddenException('Tenant setup required');
+		}
+		const user = await this.userService.findById(userId);
+		if (!user || user.tenantId !== auth.tenantId) {
+			throw new NotFoundException('User not found in this tenant');
+		}
+
+		const extensions = await this.extensionService.getExtensionsByUserId(userId);
+		for (const extension of extensions) {
+			await this.extensionService.unassignExtensionForTenant(
+				auth.tenantId,
+				extension.id,
+			);
+			await this.tenancyService.onExtensionUnassigned(auth.tenantId);
+		}
+
+		await this.userService.deleteUser(user);
+		return { id: userId };
 	}
 }

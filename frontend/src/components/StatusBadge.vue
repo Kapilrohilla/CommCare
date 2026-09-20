@@ -3,9 +3,9 @@ import { computed } from 'vue'
 
 const props = defineProps<{ status: string }>()
 const tone = computed(() => {
-  const normalized = props.status.toLowerCase()
-  if (['connected', 'completed', 'healthy', 'active', 'assigned'].includes(normalized)) return 'good'
-  if (['failed', 'rejected', 'unavailable'].includes(normalized)) return 'danger'
+  const normalized = props.status.toLowerCase().replace(/\s+/g, '_')
+  if (['connected', 'completed', 'healthy', 'active', 'assigned', 'answered'].includes(normalized)) return 'good'
+  if (['failed', 'rejected', 'unavailable', 'busy'].includes(normalized)) return 'danger'
   return 'warn'
 })
 </script>

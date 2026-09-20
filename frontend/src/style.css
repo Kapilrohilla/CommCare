@@ -116,6 +116,21 @@ h1, h2, .brand { font-family: 'Space Grotesk', sans-serif; }
 .activity-row > div { min-width: 0; flex: 1; }
 .activity-row strong { font-size: 12px; }
 .activity-row p { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.activity-row--link { color: inherit; text-decoration: none; }
+.activity-row--link:hover { background: rgba(15, 23, 42, 0.03); }
+.activity-surface--wide { grid-column: 1 / -1; }
+.table-row--clickable { cursor: pointer; }
+.table-row--clickable:hover { background: rgba(15, 23, 42, 0.03); }
+.recording-chip { font-size: 11px; color: var(--muted); }
+.recording-chip--none { opacity: 0.7; }
+.recording-action { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.button--compact { padding: 6px 10px; font-size: 12px; }
+.detail-surface { padding: 20px; }
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin: 18px 0 0; }
+.detail-grid dt { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.detail-grid dd { margin-top: 4px; font-size: 14px; }
+.detail-recording { margin-top: 22px; display: grid; gap: 10px; }
+.table-meta { margin: 12px 0 0; font-size: 12px; color: var(--muted); }
 .person-avatar { display: grid; place-items: center; width: 30px; height: 30px; flex: none; border-radius: 8px; font: 600 10px 'DM Mono'; background: #e7e8de; color: #69705f; }
 .person-avatar--coral { background: #f2ddd6; color: #9a6558; }
 .person-avatar--blue { background: #dae7ee; color: #557387; }
@@ -166,9 +181,19 @@ th:last-child, td:last-child { text-align: right; }
 .dialog-backdrop, .drawer-backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(20, 25, 24, .42); }
 .dialog-backdrop { display: grid; place-items: center; padding: 20px; }
 .dialog { width: min(440px, 100%); padding: 26px; background: var(--paper); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 25px 70px rgba(20, 25, 24, .2); }
+.dialog--form { width: min(520px, 100%); }
 .dialog h2 { font-size: 22px; margin: 10px 0; }
 .dialog p { color: var(--muted); font-size: 13px; line-height: 1.6; }
 .dialog__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
+.dialog-form, .drawer-form { display: grid; gap: 14px; margin-top: 16px; }
+.dialog-form label, .drawer-form label { display: grid; gap: 6px; font-size: 12px; color: var(--ink); }
+.dialog-form textarea, .drawer-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: #fff; font: inherit; }
+.table-scroll small { display: block; color: var(--muted); margin-top: 2px; }
+.dialog-form fieldset { border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.dialog-form legend { padding: 0 4px; font-size: 12px; }
+.check-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.field-hint { margin: 0; font-size: 12px; color: var(--muted); }
+.table-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .detail-drawer { position: absolute; inset: 0 0 0 auto; width: min(520px, 100%); background: var(--paper); box-shadow: -15px 0 45px rgba(20, 25, 24, .16); }
 .detail-drawer__header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--line); }
 .detail-drawer__header h2 { font-size: 18px; }

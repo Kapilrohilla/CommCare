@@ -214,6 +214,24 @@ export class ExtensionService {
 		return this.extensionRepository.updateExtension(extension);
 	}
 
+	async unassignExtensionForTenant(tenantId: string, extensionId: string): Promise<Extension> {
+		const extension = await this.extensionRepository.getExtensionForTenant(tenantId, extensionId);
+		if (!extension) {
+			throw new NotFoundException('Extension not found');
+		}
+		if (!extension.userId) {
+			throw new BadRequestException('Extension is not assigned to a user');
+		}
+
+		extension.userId = null;
+		extension.userInfo = null;
+		extension.status = ExtensionStatus.RESERVED;
+		extension.callerIdName = null;
+
+		await this.asteriskProvisioningService.updateExtension(extension);
+		return this.extensionRepository.updateExtension(extension);
+	}
+
 	async unregisterExtensionFromTenant(tenantId: string, extensionId: string): Promise<Extension> {
 		const extension = await this.extensionRepository.getExtensionForTenant(tenantId, extensionId);
 		if (!extension) {

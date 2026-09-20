@@ -14,8 +14,11 @@ async function bootstrap() {
       json: true,
       logLevels: ["log", "error", "warn", "debug", "verbose"],
       timestamp: true,
-      colors: true
-    })
+      colors: true,
+    }),
+    cors: {
+      origin: "*",
+    },
   });
 
   app.useGlobalFilters(new HttpExceptionFilter());

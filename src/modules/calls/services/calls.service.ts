@@ -23,6 +23,7 @@ import { Events } from 'src/constants/event.constant';
 import { AsteriskService } from 'src/modules/pbx/services/asterisk.service';
 import { ExtensionService } from 'src/modules/pbx/services/extension.service';
 import { Extension } from 'src/modules/pbx/entity/extension.entity';
+import { ListCallsQueryDto } from '../dto/calls.dto';
 import { CallLegsService } from './call-legs.service';
 import { CallEventsService } from './call-events.service';
 
@@ -49,6 +50,95 @@ export class CallsService {
 
 	async getCallByLinkedId(linkedId: string): Promise<CallEntity | null> {
 		return this.callsRepository.findByLinkedId(linkedId);
+	}
+
+	async listCallsForTenant(
+		auth: AuthContext,
+		query: ListCallsQueryDto,
+	): Promise<{ items: CallEntity[]; total: number }> {
+		const tenantId = this.requireTenant(auth);
+		return this.callsRepository.findByTenantId(tenantId, {
+			from: query.from ? new Date(query.from) : undefined,
+			to: query.to ? new Date(query.to) : undefined,
+			direction: query.direction,
+			workflow: query.workflow,
+			status: query.status,
+			agentExtension: query.agentExtension,
+			number: query.number,
+			limit: query.limit,
+			offset: query.offset,
+		});
+	}
+
+	async getCallForTenant(
+		auth: AuthContext,
+		id: string,
+	): Promise<CallEntity> {
+		const tenantId = this.requireTenant(auth);
+		const call = await this.callsRepository.findByIdAndTenantId(id, tenantId);
+		if (!call) {
+			throw new NotFoundException('Call not found');
+		}
+		return call;
+	}
+
+	async getDashboardForTenant(auth: AuthContext): Promise<{
+		callsToday: {
+			total: number;
+			byStatus: Partial<Record<CallStatus, number>>;
+		};
+		talkTimeSeconds: number;
+		missedCalls: number;
+		extensions: { assigned: number; total: number } | null;
+		recentCalls: CallEntity[];
+		asOf: string;
+	}> {
+		const tenantId = this.requireTenant(auth);
+		const dayStart = new Date();
+		dayStart.setUTCHours(0, 0, 0, 0);
+
+		const stats = await this.callsRepository.getDashboardStats(
+			tenantId,
+			dayStart,
+		);
+		const byStatus: Partial<Record<CallStatus, number>> = {};
+		for (const row of stats.byStatus) {
+			byStatus[row.status] = Number(row.count);
+		}
+
+		const recent = await this.callsRepository.findByTenantId(tenantId, {
+			limit: 8,
+			offset: 0,
+		});
+
+		let extensions: { assigned: number; total: number } | null = null;
+		try {
+			const list =
+				await this.extensionService.getExtensionsByTenantId(tenantId);
+			extensions = {
+				total: list.length,
+				assigned: list.filter((ext) => Boolean(ext.userId)).length,
+			};
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.logger.warn(`Dashboard extension metrics unavailable: ${message}`);
+		}
+
+		return {
+			callsToday: { total: stats.callsToday, byStatus },
+			talkTimeSeconds: stats.talkTimeSeconds,
+			missedCalls: stats.missedCalls,
+			extensions,
+			recentCalls: recent.items,
+			asOf: new Date().toISOString(),
+		};
+	}
+
+	private requireTenant(auth: AuthContext): string {
+		if (!auth.tenantId) {
+			throw new ForbiddenException('Tenant setup required');
+		}
+		return auth.tenantId;
 	}
 
 	async createCall(call: Partial<CallEntity>): Promise<CallEntity> {

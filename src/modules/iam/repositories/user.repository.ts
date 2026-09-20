@@ -21,7 +21,14 @@ export class UserRepository {
 	}
 
 	findByTenantId(tenantId: string): Promise<UserEntity[]> {
-		return this.readerRepository.find({ where: { tenantId } });
+		return this.readerRepository.find({
+			where: { tenantId },
+			order: { createdAt: 'DESC' },
+		});
+	}
+
+	deleteById(id: string): Promise<void> {
+		return this.writerRepository.delete(id).then(() => undefined);
 	}
 
 	create(data: Partial<UserEntity>): Promise<UserEntity> {

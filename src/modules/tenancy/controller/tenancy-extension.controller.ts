@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
 import { TOKEN_TYPE } from 'src/constants/tokenConstants';
 import { RequireTenant } from 'src/shared/decorators/auth.decorator';
 import type { AuthContext } from 'src/shared/types/auth.types';
@@ -50,6 +50,14 @@ export class TenancyExtensionController {
 		return ResponseService.success('My extensions fetched', extensions);
 	}
 
+	@Get('/users')
+	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
+	@RequireTenant()
+	async listTenantUsers(@CurrentAuth() auth: AuthContext) {
+		const data = await this.tenancyExtensionService.listTenantUsers(auth);
+		return ResponseService.success('Tenant users fetched', data);
+	}
+
 	@Post('/users')
 	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
 	@RequireTenant()
@@ -84,6 +92,17 @@ export class TenancyExtensionController {
 		return ResponseService.success('Tenant user updated', data);
 	}
 
+	@Delete('/users/:userId')
+	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
+	@RequireTenant()
+	async deleteTenantUser(
+		@Param('userId') userId: string,
+		@CurrentAuth() auth: AuthContext,
+	) {
+		const data = await this.tenancyExtensionService.deleteTenantUser(auth, userId);
+		return ResponseService.success('Tenant user deleted', data);
+	}
+
 	@Post('/unassign')
 	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
 	@RequireTenant()
@@ -93,7 +112,6 @@ export class TenancyExtensionController {
 	) {
 		const extension = await this.tenancyExtensionService.unassignExtension(
 			body.extensionId,
-			auth.userId,
 			auth.tenantId,
 		);
 		return ResponseService.success('Extension unassigned from user', extension);
