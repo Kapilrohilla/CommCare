@@ -1,14 +1,14 @@
 import { Injectable } from "@nestjs/common";
 import { WebhookLogs } from "../entity/webhook-logs.entity";
-import { WebhookLogRepository } from "../repository/webhook-log.repository";
+import { WebhookLogQuery, WebhookLogRepository } from "../repository/webhook-log.repository";
 import { AuthContext } from "src/shared/types/auth.types";
 
 @Injectable()
 export class WebhookLogsService {
 	constructor(private readonly webhookLogsRepository: WebhookLogRepository) {}
 
-	async getWebhookLogs(auth: AuthContext): Promise<WebhookLogs[]> {
-		return this.webhookLogsRepository.getWebhookLogByTenantId(auth.tenantId!);
+	async getWebhookLogs(auth: AuthContext, query: WebhookLogQuery = {}): Promise<WebhookLogs[]> {
+		return this.webhookLogsRepository.getWebhookLogByTenantId(auth.tenantId!, query);
 	}
 
 	async createWebhookLog(webhookLog: WebhookLogs): Promise<WebhookLogs> {

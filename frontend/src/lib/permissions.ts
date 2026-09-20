@@ -6,6 +6,7 @@ export const screenPermissions: Record<string, AppRole[]> = {
     dialer: ['administrator', 'operator', 'platform-administrator'],
     calls: ['administrator', 'operator', 'integration-owner', 'platform-administrator'],
     people: ['administrator', 'platform-administrator'],
+    users: ['administrator', 'platform-administrator'],
     extensions: ['administrator', 'platform-administrator'],
     inbound: ['administrator', 'platform-administrator'],
     ivr: ['administrator', 'platform-administrator'],

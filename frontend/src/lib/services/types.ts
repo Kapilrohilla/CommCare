@@ -73,9 +73,11 @@ export type DashboardMetrics = {
 export type Webhook = {
   id: string
   name: string
+  description?: string | null
   url?: string
   endpoint?: string
   enabled?: boolean
+  status?: string
   event?: string
   triggerEvent?: string
   method?: string
@@ -89,4 +91,18 @@ export type Recording = {
   sourceType?: string | null
   errorMessage?: string | null
 }
-export type WebhookLog = { id: string; status: string; event: string; createdAt: string; responseStatus?: number | null }
+export type WebhookLog = {
+  id: string
+  webhookRegistryId: string
+  tenantId: string
+  requestEndpoint: string
+  requestMethod: string
+  requestPayload?: Record<string, unknown>
+  requestHeaders?: Record<string, unknown>
+  responsePayload?: Record<string, unknown>
+  responseStatusCode: number
+  createdAt: string
+  status?: string
+  event?: string
+  responseStatus?: number | null
+}

@@ -1,6 +1,5 @@
-import { Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Query } from "@nestjs/common";
 import { WebhookLogsService } from "../services/webhook-logs.service";
-
 import { JwtAuthGuard } from "src/shared/guards/jwt-auth.guard";
 import { TOKEN_TYPE } from "src/constants/tokenConstants";
 import { CurrentAuth } from "src/shared/decorators/current-auth.decorator";
@@ -15,7 +14,14 @@ export class WebhookLogsController {
 	@Get('/tenant')
 	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
 	@RequireTenant()
-	async getWebhookLogs(@CurrentAuth() auth: AuthContext): Promise<WebhookLogs[]> {
-		return this.webhookLogsService.getWebhookLogs(auth);
+	async getWebhookLogs(
+		@CurrentAuth() auth: AuthContext,
+		@Query('from') from?: string,
+		@Query('to') to?: string,
+	): Promise<WebhookLogs[]> {
+		return this.webhookLogsService.getWebhookLogs(auth, {
+			from: from ? new Date(from) : undefined,
+			to: to ? new Date(to) : undefined,
+		});
 	}
 }

@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { Plus } from 'lucide-vue-next'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
-import CreatePersonDialog from '../components/CreatePersonDialog.vue'
+import CreateUserDialog from '../components/CreateUserDialog.vue'
 import DetailDrawer from '../components/DetailDrawer.vue'
 import ResourceState from '../components/ResourceState.vue'
 import StatusBadge from '../components/StatusBadge.vue'
@@ -14,7 +14,7 @@ import { useSessionStore } from '../stores/session'
 type ResourceMode = 'loading' | 'empty' | 'error' | 'forbidden' | 'ready'
 
 const session = useSessionStore()
-const people = ref<TenantUser[]>([])
+const users = ref<TenantUser[]>([])
 const extensions = ref<Extension[]>([])
 const state = ref<ResourceMode>('loading')
 const errorMessage = ref('')
@@ -33,46 +33,56 @@ async function loadAll() {
   state.value = 'loading'
   errorMessage.value = ''
   try {
-    const [users, ext] = await Promise.all([
+    const [nextUsers, ext] = await Promise.all([
       tenancyService.users(token.value),
       tenancyService.extensions(token.value),
     ])
-    people.value = users
+    users.value = nextUsers
     extensions.value = ext
-    state.value = users.length ? 'ready' : 'empty'
+    state.value = nextUsers.length ? 'ready' : 'empty'
   } catch (error) {
-    people.value = []
+    users.value = []
     if (error instanceof ApiError && error.status === 403) {
       state.value = 'forbidden'
-      errorMessage.value = 'You do not have access to people for this tenant.'
+      errorMessage.value = 'You do not have access to users for this tenant.'
       return
     }
     state.value = 'error'
-    errorMessage.value = error instanceof Error ? error.message : 'People could not be loaded.'
+    errorMessage.value = error instanceof Error ? error.message : 'Users could not be loaded.'
   }
 }
 
-async function createPerson(payload: { name: string; extensionIds: string[] }) {
+async function createUser(payload: {
+  name: string
+  extensionIds: string[]
+  status: 'active' | 'inactive'
+}) {
   creating.value = true
   createError.value = ''
   try {
-    await tenancyService.createUser(payload, token.value)
+    const created = await tenancyService.createUser(
+      { name: payload.name, extensionIds: payload.extensionIds },
+      token.value,
+    )
+    if (payload.status === 'inactive' && created.user?.id) {
+      await tenancyService.updateUser(created.user.id, { status: 'inactive' }, token.value)
+    }
     createOpen.value = false
     await loadAll()
   } catch (error) {
-    createError.value = error instanceof Error ? error.message : 'Person could not be created.'
+    createError.value = error instanceof Error ? error.message : 'User could not be created.'
   } finally {
     creating.value = false
   }
 }
 
-function openPerson(person: TenantUser) {
-  selected.value = person
-  editName.value = person.name
+function openUser(user: TenantUser) {
+  selected.value = user
+  editName.value = user.name
   actionError.value = ''
 }
 
-async function savePerson() {
+async function saveUser() {
   if (!selected.value || !editName.value.trim()) return
   saving.value = true
   actionError.value = ''
@@ -81,7 +91,7 @@ async function savePerson() {
     selected.value = { ...selected.value, ...result.user }
     await loadAll()
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : 'Could not update person.'
+    actionError.value = error instanceof Error ? error.message : 'Could not update user.'
   } finally {
     saving.value = false
   }
@@ -103,7 +113,7 @@ async function toggleStatus() {
   }
 }
 
-async function deletePerson() {
+async function deleteUser() {
   if (!selected.value) return
   saving.value = true
   actionError.value = ''
@@ -113,7 +123,7 @@ async function deletePerson() {
     selected.value = null
     await loadAll()
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : 'Could not delete person.'
+    actionError.value = error instanceof Error ? error.message : 'Could not delete user.'
   } finally {
     saving.value = false
   }
@@ -127,12 +137,12 @@ onMounted(loadAll)
     <section class="page-heading">
       <div>
         <p class="eyebrow">Configuration</p>
-        <h1>People</h1>
+        <h1>Users</h1>
         <p class="page-heading__copy">Manage tenant teammates and the extensions assigned to them.</p>
       </div>
       <div class="heading-actions">
         <button class="button button--primary" type="button" @click="createOpen = true">
-          <Plus :size="15" /> New person
+          <Plus :size="15" /> New user
         </button>
       </div>
     </section>
@@ -149,7 +159,7 @@ onMounted(loadAll)
       <div class="surface__header table-header">
         <div>
           <span class="overline">Directory</span>
-          <h2>People</h2>
+          <h2>Users</h2>
         </div>
       </div>
 
@@ -164,37 +174,37 @@ onMounted(loadAll)
           </thead>
           <tbody>
             <tr
-              v-for="person in people"
-              :key="person.id"
+              v-for="user in users"
+              :key="user.id"
               class="table-row--clickable"
-              @click="openPerson(person)"
+              @click="openUser(user)"
             >
-              <td><strong>{{ person.name }}</strong></td>
-              <td><StatusBadge :status="person.status" /></td>
-              <td>{{ person.extensions?.map((item) => item.extension).join(', ') || '—' }}</td>
+              <td><strong>{{ user.name }}</strong></td>
+              <td><StatusBadge :status="user.status" /></td>
+              <td>{{ user.extensions?.map((item) => item.extension).join(', ') || '—' }}</td>
             </tr>
           </tbody>
         </table>
         <ResourceState
           v-if="state === 'empty'"
           state="empty"
-          title="No people yet"
-          message="Create a person and assign an available extension to get started."
+          title="No users yet"
+          message="Create a user and assign an available extension to get started."
         />
       </div>
     </section>
 
-    <CreatePersonDialog
+    <CreateUserDialog
       :open="createOpen"
       :extensions="extensions"
       :submitting="creating"
       :error="createError"
       @cancel="createOpen = false"
-      @submit="createPerson"
+      @submit="createUser"
     />
 
-    <DetailDrawer :open="Boolean(selected)" :title="selected?.name ?? 'Person'" @close="selected = null">
-      <form class="drawer-form" @submit.prevent="savePerson">
+    <DetailDrawer :open="Boolean(selected)" :title="selected?.name ?? 'User'" @close="selected = null">
+      <form class="drawer-form" @submit.prevent="saveUser">
         <label>
           Name
           <input v-model="editName" type="text" />
@@ -218,11 +228,11 @@ onMounted(loadAll)
 
     <ConfirmDialog
       :open="confirmDelete"
-      title="Delete this person?"
+      title="Delete this user?"
       message="Their extensions will be unassigned first. This cannot be undone from the console."
-      confirm-label="Delete person"
+      confirm-label="Delete user"
       @cancel="confirmDelete = false"
-      @confirm="deletePerson"
+      @confirm="deleteUser"
     />
   </div>
 </template>

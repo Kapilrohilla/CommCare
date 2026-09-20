@@ -4,6 +4,7 @@ import { Download, Plus, RefreshCw } from 'lucide-vue-next'
 
 const props = defineProps<{ title: string; description: string }>()
 const fixtures: Record<string, { columns: string[]; rows: string[][] }> = {
+  'Users': { columns: ['Name', 'Status', 'Extensions', 'Updated'], rows: [['Maya Chen', 'Active', '201, 202', 'Today'], ['Liam Patel', 'Active', '204', 'Yesterday']] },
   'People': { columns: ['Name', 'Status', 'Extensions', 'Updated'], rows: [['Maya Chen', 'Active', '201, 202', 'Today'], ['Liam Patel', 'Active', '204', 'Yesterday']] },
   'Extensions': { columns: ['Extension', 'Availability', 'Assigned to', 'Provisioning'], rows: [['201', 'Assigned', 'Maya Chen', 'Ready'], ['204', 'Available', '—', 'Ready'], ['205', 'Reserved', '—', 'Pending']] },
   'Inbound routes': { columns: ['Source', 'Destination', 'State', 'Updated'], rows: [['+1 415 555 0100', 'Main IVR', 'Enabled', 'Today'], ['+1 415 555 0120', 'Extension 201', 'Disabled', 'Sep 18']] },

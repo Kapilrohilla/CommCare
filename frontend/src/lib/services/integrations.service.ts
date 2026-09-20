@@ -46,8 +46,19 @@ export const webhooksService = {
   ) => request<Webhook>('/webhook-registry', { method: 'POST', body: JSON.stringify(payload), token }),
 }
 
+export type WebhookLogQuery = {
+  from?: string
+  to?: string
+}
+
 export const webhookLogsService = {
-  list: (token: string) => request<WebhookLog[]>('/webhook-logs/tenant', { token }),
+  list: (token: string, query: WebhookLogQuery = {}) => {
+    const params = new URLSearchParams()
+    if (query.from) params.set('from', query.from)
+    if (query.to) params.set('to', query.to)
+    const qs = params.toString()
+    return request<WebhookLog[]>(`/webhook-logs/tenant${qs ? `?${qs}` : ''}`, { token })
+  },
 }
 
 export const healthService = {

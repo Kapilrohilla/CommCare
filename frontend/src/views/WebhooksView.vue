@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Plus } from 'lucide-vue-next'
+import { Plus, RefreshCw } from 'lucide-vue-next'
 import CreateWebhookDialog from '../components/CreateWebhookDialog.vue'
 import ResourceState from '../components/ResourceState.vue'
 import StatusBadge from '../components/StatusBadge.vue'
@@ -19,6 +19,12 @@ const createOpen = ref(false)
 const creating = ref(false)
 const createError = ref('')
 const token = computed(() => session.current?.token ?? '')
+
+function webhookStatus(hook: Webhook) {
+  if (hook.enabled === false) return 'inactive'
+  if (hook.status) return hook.status
+  return 'active'
+}
 
 async function loadWebhooks() {
   state.value = 'loading'
@@ -70,6 +76,9 @@ onMounted(loadWebhooks)
         <p class="page-heading__copy">Configure outbound event delivery without exposing signing secrets.</p>
       </div>
       <div class="heading-actions">
+        <button class="button button--secondary" type="button" @click="loadWebhooks">
+          <RefreshCw :size="15" /> Refresh
+        </button>
         <button class="button button--primary" type="button" @click="createOpen = true">
           <Plus :size="15" /> New webhook
         </button>
@@ -92,19 +101,29 @@ onMounted(loadWebhooks)
               <th>Name</th>
               <th>Event</th>
               <th>Endpoint</th>
+              <th>Method</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="hook in webhooks" :key="hook.id">
-              <td><strong>{{ hook.name }}</strong></td>
-              <td>{{ hook.event || (hook as { triggerEvent?: string }).triggerEvent || '—' }}</td>
-              <td>{{ hook.url || (hook as { endpoint?: string }).endpoint || '—' }}</td>
-              <td><StatusBadge :status="hook.enabled === false ? 'inactive' : 'active'" /></td>
+              <td>
+                <strong>{{ hook.name }}</strong>
+                <small v-if="hook.description" class="table-sub">{{ hook.description }}</small>
+              </td>
+              <td>{{ hook.triggerEvent || hook.event || '—' }}</td>
+              <td>{{ hook.endpoint || hook.url || '—' }}</td>
+              <td>{{ (hook.method || 'post').toUpperCase() }}</td>
+              <td><StatusBadge :status="webhookStatus(hook)" /></td>
             </tr>
           </tbody>
         </table>
-        <ResourceState v-if="state === 'empty'" state="empty" title="No webhooks" message="Create a webhook to receive call lifecycle events." />
+        <ResourceState
+          v-if="state === 'empty'"
+          state="empty"
+          title="No webhooks"
+          message="Create a webhook to receive call lifecycle events."
+        />
       </div>
     </section>
 

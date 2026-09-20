@@ -26,6 +26,7 @@ const router = createRouter({
     routes: [
         { path: '/sign-in', name: 'sign-in', component: SignInView, meta: { title: 'Sign in' } },
         { path: '/otp', name: 'otp', component: OtpView, meta: { title: 'Verify OTP' } },
+        { path: '/people', redirect: '/users' },
         {
             path: '/', component: AppShell, meta: { requiresAuth: true },
             children: [
@@ -34,7 +35,7 @@ const router = createRouter({
                 protectedRoute('dialer', 'dialer', 'Dialer', DialerView),
                 protectedRoute('calls', 'calls', 'Calls', CallsView),
                 protectedRoute('calls/:id', 'call-detail', 'Call details', CallDetailView),
-                protectedRoute('people', 'people', 'People', PeopleView),
+                protectedRoute('users', 'users', 'Users', PeopleView),
                 protectedRoute('extensions', 'extensions', 'Extensions', ExtensionsView),
                 protectedRoute('inbound', 'inbound-routes', 'Inbound routes', InboundRoutesView),
                 protectedRoute('ivr', 'ivr-menus', 'IVR menus', IvrMenusView),
