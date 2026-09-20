@@ -127,7 +127,16 @@ export class InboundRoutesService {
 		if (!did.trim()) {
 			return null;
 		}
-		return this.inboundRouteRepository.getEnabledBySourceValue(did);
+
+		const digits = did.replace(/\D/g, '');
+		const candidates = [did.trim(), digits];
+		if (digits.length > 10) {
+			candidates.push(digits.slice(-10));
+		}
+
+		return this.inboundRouteRepository.getEnabledBySourceValues(
+			[...new Set(candidates)].filter(Boolean),
+		);
 	}
 
 	private async ensureUniqueSourceValue(
