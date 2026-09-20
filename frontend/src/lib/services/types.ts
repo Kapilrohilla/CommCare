@@ -1,0 +1,9 @@
+export type AuthTokenPair = { accessToken: string; refreshToken?: string }
+export type Extension = { id: string; extension: string; status: string; type?: string; callerIdName?: string | null; userId?: string | null; userInfo?: { name?: string } | null }
+export type InboundRoute = { id: string; sourceType: string; sourceValue: string; destinationType: string; destinationId?: string | null; destinationValue?: string | null; enabled: boolean }
+export type IvrMenu = { id: string; name?: string; description?: string | null; announcementRecordingId?: string | null }
+export type SipTrunk = { id: string; name: string; authMode: string; username?: string | null; enabled: boolean; identifyIps?: { id?: string; match: string }[] }
+export type Call = { id: string; status: string; direction?: string; fromNumber?: string; toNumber?: string; startedAt?: string; endedAt?: string; recordingUrl?: string | null }
+export type Recording = { id: string; name?: string; status: string; url?: string | null; duration?: number | null }
+export type Webhook = { id: string; name: string; url: string; enabled: boolean; event: string }
+export type WebhookLog = { id: string; status: string; event: string; createdAt: string; responseStatus?: number | null }
