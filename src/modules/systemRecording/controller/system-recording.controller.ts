@@ -64,6 +64,17 @@ export class SystemRecordingController {
 		return ResponseService.success('System recording fetched', data);
 	}
 
+	@Get(':id/playback-url')
+	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
+	@RequireTenant()
+	async getPlaybackUrl(
+		@CurrentAuth() auth: AuthContext,
+		@Param('id') id: string,
+	) {
+		const data = await this.systemRecordingService.getPlaybackUrlForTenant(auth, id);
+		return ResponseService.success('Playback URL created', data);
+	}
+
 	@Patch(':id')
 	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
 	@RequireTenant()

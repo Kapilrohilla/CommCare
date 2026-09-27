@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { STASIS_WORKFLOW, buildIvrAppArgs } from 'src/constants/stasis-app-args.constant';
+import { STASIS_WORKFLOW, buildIvrAppArgs, buildQueueAppArgs } from 'src/constants/stasis-app-args.constant';
 import { AsteriskService } from 'src/modules/pbx/services/asterisk.service';
 import { ExtensionService } from 'src/modules/pbx/services/extension.service';
 import { RawAriEventBody } from 'src/modules/pbx/types/ari-event.types';
@@ -9,6 +9,7 @@ import { IVROptionEntity } from 'src/modules/ivr/entity/ivr-options.entity';
 import { IVRSessionEntity } from 'src/modules/ivr/entity/ivr-session.entity';
 import { IVRService } from 'src/modules/ivr/services/ivr.service';
 import { SystemRecordingService } from 'src/modules/systemRecording/services/system-recording.service';
+import { QueueCallWorkflowService } from './queue-call-workflow.service';
 
 @Injectable()
 export class IvrCallWorkflowService {
@@ -21,6 +22,7 @@ export class IvrCallWorkflowService {
 		private readonly systemRecordingService: SystemRecordingService,
 		private readonly asteriskService: AsteriskService,
 		private readonly extensionService: ExtensionService,
+		private readonly queueCallWorkflowService: QueueCallWorkflowService,
 	) {}
 
 	canHandle(event: RawAriEventBody): boolean {
@@ -237,6 +239,46 @@ export class IvrCallWorkflowService {
 				const bridge = await this.asteriskService.createBridge();
 				await this.asteriskService.addChannelToBridge(bridge.id, channelId);
 				await this.asteriskService.addChannelToBridge(bridge.id, callee.id);
+				return;
+			}
+			case IVROptionDestinationType.QUEUE: {
+				if (!option.destinationId) {
+					await this.asteriskService.hangupChannel(channelId);
+					return;
+				}
+				const appArgs = buildQueueAppArgs({
+					tenantId,
+					queueId: option.destinationId,
+					queueCallId: '',
+					leg: 'caller',
+				});
+				this.logger.log(
+					`IVR ${currentIvrId} → Queue ${option.destinationId} args=${appArgs.join(',')}`,
+				);
+				await this.queueCallWorkflowService.handleEvent(
+					'StasisStart',
+					{ type: 'StasisStart', channel: { id: channelId }, args: appArgs },
+					0,
+				);
+				return;
+			}
+			case IVROptionDestinationType.ANNOUNCEMENT: {
+				if (!option.destinationId) {
+					await this.asteriskService.hangupChannel(channelId);
+					return;
+				}
+				const playbackUrl = await this.systemRecordingService.getTelephonyPlaybackUrl(
+					tenantId,
+					option.destinationId,
+				);
+				if (playbackUrl) {
+					await this.asteriskService.playMedia(channelId, `sound:${playbackUrl}`);
+				} else {
+					this.logger.warn(
+						`No playback URL for announcement option ${option.id} recording ${option.destinationId}`,
+					);
+				}
+				await this.asteriskService.hangupChannel(channelId);
 				return;
 			}
 			default:

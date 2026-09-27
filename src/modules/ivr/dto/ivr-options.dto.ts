@@ -63,6 +63,7 @@ const IvrOptionBaseSchema = z.object({
 	destinationType: z.nativeEnum(IVROptionDestinationType),
 	destinationId: z.string().uuid().optional(),
 	destinationValue: z.string().min(1).max(64).optional(),
+	label: z.string().trim().max(120).optional(),
 });
 
 export const CreateIvrOptionDto = IvrOptionBaseSchema.strict().superRefine(

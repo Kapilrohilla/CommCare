@@ -1,5 +1,6 @@
-import { Logger, Module } from '@nestjs/common';
+import { Logger, Module, forwardRef } from '@nestjs/common';
 import { DatabaseModule } from 'src/infra/database/connectors/typeORM';
+import { InboundQueuesModule } from 'src/modules/inboundQueues/inboundQueues.module';
 import { PbxModule } from 'src/modules/pbx/pbx.module';
 import { SystemRecordingModule } from 'src/modules/systemRecording/system-recording.module';
 import { IVROptionsController } from './controller/ivr-options.controller';
@@ -20,6 +21,7 @@ import { IVRService } from './services/ivr.service';
 		DatabaseModule.forFeature([IVREntity, IVROptionEntity, IVRSessionEntity]),
 		SystemRecordingModule,
 		PbxModule,
+		forwardRef(() => InboundQueuesModule),
 	],
 	controllers: [IVRController, IVROptionsController, IVRSessionController],
 	providers: [

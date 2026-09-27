@@ -1364,6 +1364,311 @@ th:last-child, td:last-child { text-align: right; }
   .user-modal__actions .button { flex: 1; }
 }
 
+/* IVR menu modal */
+.ivr-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: rgba(24, 30, 29, .55);
+  backdrop-filter: blur(2px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.ivr-modal {
+  width: min(920px, 100%);
+  max-height: min(920px, calc(100dvh - 48px));
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border: 1px solid #e6ebe7;
+  border-radius: 16px;
+  box-shadow: 0 28px 80px rgba(20, 25, 24, .28);
+  overflow: hidden;
+}
+.ivr-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+  padding: 18px 24px 0;
+}
+.ivr-modal__tags { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.ivr-modal__badge {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e8f7ef;
+  color: #177a55;
+  font: 600 10px 'DM Mono', monospace;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.ivr-modal__close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #8b9692;
+}
+.ivr-modal__close:hover { background: #f2f4f2; color: var(--ink); }
+.ivr-modal__intro { padding: 12px 24px 4px; display: grid; gap: 8px; flex: none; }
+.ivr-modal__intro h2 {
+  font: 700 28px/1.1 'Space Grotesk', sans-serif;
+  letter-spacing: -.8px;
+  color: var(--ink);
+}
+.ivr-modal__intro p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; max-width: 58ch; }
+.ivr-modal__form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.ivr-modal__body {
+  display: grid;
+  gap: 16px;
+  padding: 14px 24px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
+.ivr-modal__section {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: 16px;
+  border: 1px solid #e8ece9;
+  border-radius: 14px;
+  background: #fcfdfc;
+}
+.ivr-modal__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ivr-modal__section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: #177a55;
+  font: 700 11px 'DM Mono', monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.ivr-modal__chip {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #e8f7ef;
+  color: #177a55;
+  font: 600 10px 'DM Mono', monospace;
+  white-space: nowrap;
+}
+.ivr-modal__link {
+  font-size: 12px;
+  font-weight: 600;
+  color: #177a55;
+  text-decoration: none;
+}
+.ivr-modal__link:hover { text-decoration: underline; }
+.ivr-modal__field { display: grid; gap: 7px; }
+.ivr-modal__field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ivr-modal__field input,
+.ivr-modal__field select,
+.ivr-modal__field textarea {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+}
+.ivr-modal__field textarea { height: auto; min-height: 64px; padding: 10px 12px; resize: vertical; }
+.ivr-modal__field input:focus,
+.ivr-modal__field select:focus,
+.ivr-modal__field textarea:focus {
+  outline: 0;
+  border-color: #1f9d6c;
+  box-shadow: 0 0 0 3px rgba(31, 157, 108, .12);
+}
+.ivr-modal__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ivr-modal__row p { margin: 0; font-size: 12px; font-weight: 600; color: var(--ink); }
+.ivr-modal__row small { display: block; margin-top: 2px; font-size: 11px; font-weight: 400; color: #9aa39e; }
+.ivr-modal__toggle {
+  width: 48px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: #d7ddd9;
+  padding: 3px;
+  flex: none;
+  transition: background .15s ease;
+}
+.ivr-modal__toggle[aria-checked='true'] { background: #1f9d6c; }
+.ivr-modal__toggle-thumb {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(20, 25, 24, .2);
+  transition: transform .15s ease;
+}
+.ivr-modal__toggle[aria-checked='true'] .ivr-modal__toggle-thumb { transform: translateX(20px); }
+.ivr-modal__grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ivr-modal__grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+/* Recording preview */
+.ivr-recording-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #e8ece9;
+  border-radius: 12px;
+  background: #fff;
+}
+.ivr-recording-preview__play {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: #1f2937;
+  color: #fff;
+  flex: none;
+}
+.ivr-recording-preview__wave {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 20px;
+  min-width: 0;
+}
+.ivr-recording-preview__wave span {
+  width: 3px;
+  border-radius: 2px;
+  background: #d7ddd9;
+}
+.ivr-recording-preview__wave span.is-active { background: #1f9d6c; }
+.ivr-recording-preview__time {
+  font: 500 11px 'DM Mono', monospace;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.ivr-recording-preview__badge {
+  display: inline-flex;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #f3f5f3;
+  color: #5d6864;
+  font: 600 10px 'DM Mono', monospace;
+  white-space: nowrap;
+}
+
+/* DTMF keypad routing table */
+.ivr-keypad-table-wrap { overflow-x: auto; border: 1px solid #e8ece9; border-radius: 12px; }
+.ivr-keypad-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ivr-keypad-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font: 600 10px 'DM Mono', monospace;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #8b9692;
+  border-bottom: 1px solid #e8ece9;
+  background: #fafbf9;
+  white-space: nowrap;
+}
+.ivr-keypad-table td { padding: 8px 10px; border-bottom: 1px solid #f1f3f1; vertical-align: middle; }
+.ivr-keypad-table tr:last-child td { border-bottom: 0; }
+.ivr-keypad-row__digit {
+  width: 44px !important;
+  text-align: center;
+  font-weight: 700;
+}
+.ivr-keypad-table select,
+.ivr-keypad-table input {
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+  min-width: 140px;
+}
+.ivr-keypad-row__no-target { color: #9aa39e; font-size: 12px; }
+.ivr-keypad-row__actions { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.ivr-keypad-row__drag { color: #c3cac5; cursor: default; }
+.ivr-keypad-row__delete {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #b42318;
+}
+.ivr-keypad-row__delete:hover { background: #fdeceb; }
+.ivr-modal__empty-hint { margin: 0; font-size: 12px; color: #9aa39e; }
+.ivr-modal__error { margin: 0; color: #b42318; font-size: 12px; }
+.ivr-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex: none;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding: 14px 24px 18px;
+  border-top: 1px solid #edf0ed;
+  background: #fff;
+}
+.ivr-modal__status { display: inline-flex; align-items: center; gap: 8px; color: #9aa39e; font-size: 12px; }
+.ivr-modal__status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #c9d2cc;
+  box-shadow: 0 0 0 3px rgba(201, 210, 204, .25);
+}
+.ivr-modal__status-dot.is-ready {
+  background: #1f9d6c;
+  box-shadow: 0 0 0 3px rgba(31, 157, 108, .16);
+}
+.ivr-modal__actions { display: flex; gap: 8px; }
+
+@media (max-width: 860px) {
+  .ivr-modal__grid-2,
+  .ivr-modal__grid-4 { grid-template-columns: 1fr; }
+  .ivr-modal__footer { flex-direction: column; align-items: stretch; }
+  .ivr-modal__actions { justify-content: stretch; }
+  .ivr-modal__actions .button { flex: 1; }
+}
+
 /* System recording create modal */
 .recording-modal-backdrop {
   position: fixed;

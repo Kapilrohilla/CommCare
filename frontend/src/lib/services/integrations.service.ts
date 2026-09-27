@@ -8,6 +8,10 @@ export type SystemRecording = Recording & {
   errorMessage?: string | null
   ttsText?: string | null
   mimeType?: string | null
+  format?: string | null
+  codec?: string | null
+  sampleRate?: number | null
+  channels?: number | null
   duration?: number | null
 }
 
@@ -35,6 +39,8 @@ export const recordingsService = {
     }),
   process: (id: string, token: string) =>
     request<SystemRecording>(`/system-recordings/${id}/process`, { method: 'POST', token }),
+  playbackUrl: (id: string, token: string) =>
+    request<{ url: string; expiresInSeconds: number }>(`/system-recordings/${id}/playback-url`, { token }),
   remove: (id: string, token: string) => request(`/system-recordings/${id}`, { method: 'DELETE', token }),
 }
 

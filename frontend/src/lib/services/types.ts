@@ -18,7 +18,34 @@ export type InboundRoute = {
   destinationValue?: string | null
   enabled: boolean
 }
-export type IvrMenu = { id: string; name?: string; description?: string | null; announcementRecordingId?: string | null }
+export type IvrInvalidKeyAction = 'replay_announcement' | 'route_to_final_timeout' | 'hangup'
+export type IvrOptionDestinationType = 'PhoneNumber' | 'IVR' | 'Extension' | 'IB_Queue' | 'hangup' | 'Announcement'
+export type IvrMenu = {
+  id: string
+  name: string
+  description?: string | null
+  announcementRecordingId?: string | null
+  enabled: boolean
+  inputTimeoutSeconds: number
+  maxInvalidRetries: number
+  invalidKeyAction: IvrInvalidKeyAction
+  finalTimeoutDestinationType: IvrOptionDestinationType
+  finalTimeoutDestinationId?: string | null
+  finalTimeoutDestinationValue?: string | null
+  createdAt?: string
+  updatedAt?: string
+}
+export type IvrOption = {
+  id: string
+  ivrId: string
+  digit: string
+  destinationType: IvrOptionDestinationType
+  destinationId?: string | null
+  destinationValue?: string | null
+  label?: string | null
+  createdAt?: string
+  updatedAt?: string
+}
 export type Queue = { id: string; name: string; description?: string | null; strategy: string; enabled: boolean }
 export type SipTrunk = { id: string; name: string; authMode: string; username?: string | null; enabled: boolean; identifyIps?: { id?: string; match: string }[] }
 export type CallDirection = 'inbound' | 'outbound' | 'internal'

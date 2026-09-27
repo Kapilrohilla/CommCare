@@ -13,7 +13,7 @@ import { InboundRoutesService } from './services/inbound-routes.service';
 	imports: [
 		DatabaseModule.forFeature([InboundRoute]),
 		PbxModule,
-		IvrModule,
+		forwardRef(() => IvrModule),
 		forwardRef(() => InboundQueuesModule),
 		forwardRef(() => PhoneNumbersModule),
 	],

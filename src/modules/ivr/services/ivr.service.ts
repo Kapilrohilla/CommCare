@@ -5,10 +5,12 @@ import {
 	NotFoundException,
 } from '@nestjs/common';
 import { ExtensionService } from 'src/modules/pbx/services/extension.service';
+import { QueuesService } from 'src/modules/inboundQueues/services/queues.service';
 import { SystemRecordingService } from 'src/modules/systemRecording/services/system-recording.service';
 import { SystemRecordingStatus } from 'src/modules/systemRecording/constants/system-recording.constant';
 import { AuthContext } from 'src/shared/types/auth.types';
 import { IVROptionDestinationType } from '../constants/ivr-options.constant';
+import { IVRInvalidKeyAction } from '../constants/ivr.constant';
 import { IVRSessionState } from '../constants/ivr-session.constant';
 import { CreateIvrOptionDto, UpdateIvrOptionDto } from '../dto/ivr-options.dto';
 import { CreateIvrSessionDto, UpdateIvrSessionDto } from '../dto/ivr-session.dto';
@@ -28,6 +30,7 @@ export class IVRService {
 		private readonly ivrSessionService: IVRSessionService,
 		private readonly systemRecordingService: SystemRecordingService,
 		private readonly extensionService: ExtensionService,
+		private readonly queuesService: QueuesService,
 	) {}
 
 	async createIvr(auth: AuthContext, dto: CreateIvrDto): Promise<IVREntity> {
@@ -37,10 +40,26 @@ export class IVRService {
 			await this.validateAnnouncementRecording(auth, dto.announcementRecordingId);
 		}
 
+		const finalTimeoutDestinationType =
+			dto.finalTimeoutDestinationType ?? IVROptionDestinationType.HANGUP;
+		await this.validateDestination(auth, null, {
+			destinationType: finalTimeoutDestinationType,
+			destinationId: dto.finalTimeoutDestinationId,
+			destinationValue: dto.finalTimeoutDestinationValue,
+		});
+
 		const ivr = new IVREntity();
-		ivr.description = dto.description;
+		ivr.name = dto.name;
+		ivr.description = dto.description ?? null;
 		ivr.tenantId = tenantId;
 		ivr.announcementRecordingId = dto.announcementRecordingId ?? null;
+		ivr.enabled = dto.enabled ?? true;
+		ivr.inputTimeoutSeconds = dto.inputTimeoutSeconds ?? 5;
+		ivr.maxInvalidRetries = dto.maxInvalidRetries ?? 3;
+		ivr.invalidKeyAction = dto.invalidKeyAction ?? IVRInvalidKeyAction.ReplayAnnouncement;
+		ivr.finalTimeoutDestinationType = finalTimeoutDestinationType;
+		ivr.finalTimeoutDestinationId = dto.finalTimeoutDestinationId ?? null;
+		ivr.finalTimeoutDestinationValue = dto.finalTimeoutDestinationValue ?? null;
 
 		return this.ivrRepository.create(ivr);
 	}
@@ -60,6 +79,10 @@ export class IVRService {
 	): Promise<IVREntity> {
 		const ivr = await this.getIvrForTenant(auth, id);
 
+		if (dto.name !== undefined) {
+			ivr.name = dto.name;
+		}
+
 		if (dto.description !== undefined) {
 			ivr.description = dto.description;
 		}
@@ -69,6 +92,51 @@ export class IVRService {
 				await this.validateAnnouncementRecording(auth, dto.announcementRecordingId);
 			}
 			ivr.announcementRecordingId = dto.announcementRecordingId;
+		}
+
+		if (dto.enabled !== undefined) {
+			ivr.enabled = dto.enabled;
+		}
+
+		if (dto.inputTimeoutSeconds !== undefined) {
+			ivr.inputTimeoutSeconds = dto.inputTimeoutSeconds;
+		}
+
+		if (dto.maxInvalidRetries !== undefined) {
+			ivr.maxInvalidRetries = dto.maxInvalidRetries;
+		}
+
+		if (dto.invalidKeyAction !== undefined) {
+			ivr.invalidKeyAction = dto.invalidKeyAction;
+		}
+
+		if (
+			dto.finalTimeoutDestinationType !== undefined ||
+			dto.finalTimeoutDestinationId !== undefined ||
+			dto.finalTimeoutDestinationValue !== undefined
+		) {
+			const nextFinalTimeoutType =
+				dto.finalTimeoutDestinationType ??
+				ivr.finalTimeoutDestinationType ??
+				IVROptionDestinationType.HANGUP;
+			const nextFinalTimeoutId =
+				dto.finalTimeoutDestinationId !== undefined
+					? dto.finalTimeoutDestinationId
+					: ivr.finalTimeoutDestinationId;
+			const nextFinalTimeoutValue =
+				dto.finalTimeoutDestinationValue !== undefined
+					? dto.finalTimeoutDestinationValue
+					: ivr.finalTimeoutDestinationValue;
+
+			await this.validateDestination(auth, id, {
+				destinationType: nextFinalTimeoutType,
+				destinationId: nextFinalTimeoutId,
+				destinationValue: nextFinalTimeoutValue,
+			});
+
+			ivr.finalTimeoutDestinationType = nextFinalTimeoutType;
+			ivr.finalTimeoutDestinationId = nextFinalTimeoutId ?? null;
+			ivr.finalTimeoutDestinationValue = nextFinalTimeoutValue ?? null;
 		}
 
 		return this.ivrRepository.save(ivr);
@@ -104,6 +172,7 @@ export class IVRService {
 		option.destinationType = dto.destinationType;
 		option.destinationId = dto.destinationId ?? null;
 		option.destinationValue = dto.destinationValue ?? null;
+		option.label = dto.label ?? null;
 
 		return this.ivrOptionsService.create(option);
 	}
@@ -165,6 +234,10 @@ export class IVRService {
 			option.destinationType = nextDestination.destinationType;
 			option.destinationId = nextDestination.destinationId ?? null;
 			option.destinationValue = nextDestination.destinationValue ?? null;
+		}
+
+		if (dto.label !== undefined) {
+			option.label = dto.label ?? null;
 		}
 
 		return this.ivrOptionsService.save(option);
@@ -307,7 +380,7 @@ export class IVRService {
 
 	private async validateDestination(
 		auth: AuthContext,
-		ivrId: string,
+		ivrId: string | null,
 		dto: {
 			destinationType: IVROptionDestinationType;
 			destinationId?: string | null;
@@ -317,13 +390,24 @@ export class IVRService {
 		switch (dto.destinationType) {
 			case IVROptionDestinationType.HANGUP:
 			case IVROptionDestinationType.PHONE_NUMBER:
-			case IVROptionDestinationType.QUEUE:
 				return;
+			case IVROptionDestinationType.QUEUE: {
+				const tenantId = this.requireTenant(auth);
+				await this.queuesService.getEnabledQueueForTenant(tenantId, dto.destinationId!);
+				return;
+			}
+			case IVROptionDestinationType.ANNOUNCEMENT: {
+				await this.validateAnnouncementRecording(auth, dto.destinationId!);
+				return;
+			}
 			case IVROptionDestinationType.IVR: {
-				if (dto.destinationId === ivrId) {
+				if (ivrId && dto.destinationId === ivrId) {
 					throw new BadRequestException('IVR option cannot route to the same IVR');
 				}
-				await this.getIvrForTenant(auth, dto.destinationId!);
+				const target = await this.getIvrForTenant(auth, dto.destinationId!);
+				if (!target.enabled) {
+					throw new BadRequestException('Cannot route to a disabled IVR');
+				}
 				return;
 			}
 			case IVROptionDestinationType.EXTENSION: {

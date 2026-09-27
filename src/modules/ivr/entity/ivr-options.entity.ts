@@ -38,6 +38,9 @@ export class IVROptionEntity {
 	@Column({ name: 'destination_value', type: 'varchar', length: 64, nullable: true })
 	destinationValue: string | null = null;
 
+	@Column({ type: 'varchar', length: 120, nullable: true })
+	label: string | null = null;
+
 	@CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
 	createdAt!: Date;
 

@@ -405,6 +405,20 @@ export class SystemRecordingService {
 		return recording;
 	}
 
+	async getPlaybackUrlForTenant(
+		auth: AuthContext,
+		recordingId: string,
+	): Promise<{ url: string; expiresInSeconds: number }> {
+		this.requireTenant(auth);
+
+		const url = await this.getTelephonyPlaybackUrl(auth.tenantId!, recordingId);
+		if (!url) {
+			throw new NotFoundException('Recording not found or not ready for playback');
+		}
+
+		return { url, expiresInSeconds: 3600 };
+	}
+
 	private requireTenant(auth: AuthContext): void {
 		if (!auth.tenantId) {
 			throw new ForbiddenException('Tenant setup required');
