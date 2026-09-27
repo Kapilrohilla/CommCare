@@ -43,7 +43,8 @@ async function loadRoutes() {
 async function createRoute(payload: {
   sourceType: 'phone_number'
   sourceValue: string
-  destinationType: 'hangup' | 'external_number'
+  destinationType: 'ivr' | 'queue' | 'extension' | 'voicemail' | 'external_number' | 'hangup'
+  destinationId?: string
   destinationValue?: string
   enabled: boolean
 }) {

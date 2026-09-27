@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { STASIS_WORKFLOW, buildIvrAppArgs } from 'src/constants/stasis-app-args.constant';
+import { STASIS_WORKFLOW, buildIvrAppArgs, buildQueueAppArgs } from 'src/constants/stasis-app-args.constant';
 import { AsteriskService } from 'src/modules/pbx/services/asterisk.service';
 import { ExtensionService } from 'src/modules/pbx/services/extension.service';
 import { RawAriEventBody } from 'src/modules/pbx/types/ari-event.types';
@@ -7,6 +7,7 @@ import { InboundRouteDestinationType } from 'src/modules/routing/constants/inbou
 import { InboundRoute } from 'src/modules/routing/entity/inbound-route.entity';
 import { InboundRoutesService } from 'src/modules/routing/services/inbound-routes.service';
 import { IvrCallWorkflowService } from './ivr-call-workflow.service';
+import { QueueCallWorkflowService } from './queue-call-workflow.service';
 
 @Injectable()
 export class InboundRouteCallWorkflowService {
@@ -18,6 +19,7 @@ export class InboundRouteCallWorkflowService {
 		private readonly asteriskService: AsteriskService,
 		private readonly extensionService: ExtensionService,
 		private readonly ivrCallWorkflowService: IvrCallWorkflowService,
+		private readonly queueCallWorkflowService: QueueCallWorkflowService,
 	) {}
 
 	canHandle(event: RawAriEventBody): boolean {
@@ -74,7 +76,10 @@ export class InboundRouteCallWorkflowService {
 			`Inbound route ${route.id} matched DID ${parsed.did} caller=${parsed.callerNumber}`,
 		);
 
-		if (route.destinationType !== InboundRouteDestinationType.IVR) {
+		if (
+			route.destinationType !== InboundRouteDestinationType.IVR &&
+			route.destinationType !== InboundRouteDestinationType.Queue
+		) {
 			await this.asteriskService.answerChannel(channelId);
 		}
 
@@ -123,6 +128,26 @@ export class InboundRouteCallWorkflowService {
 				});
 
 				await this.ivrCallWorkflowService.handleEvent('StasisStart', {
+					type: 'StasisStart',
+					channel: event.channel ?? { id: channelId },
+					args: appArgs,
+				}, 0);
+				return;
+			}
+			case InboundRouteDestinationType.Queue: {
+				if (!route.destinationId) {
+					await this.asteriskService.hangupChannel(channelId);
+					return;
+				}
+
+				const appArgs = buildQueueAppArgs({
+					tenantId: route.tenantId,
+					queueId: route.destinationId,
+					queueCallId: '',
+					leg: 'caller',
+				});
+
+				await this.queueCallWorkflowService.handleEvent('StasisStart', {
 					type: 'StasisStart',
 					channel: event.channel ?? { id: channelId },
 					args: appArgs,

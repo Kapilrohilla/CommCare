@@ -23,10 +23,18 @@ const sourceRefinement = (
 			}
 			return;
 		case InboundRouteSourceType.PhoneNumber:
-			if (!data.sourceValue?.trim()) {
+			if (!data.sourceId) {
 				ctx.addIssue({
 					code: z.ZodIssueCode.custom,
-					message: 'sourceValue is required for phone_number source',
+					message: 'sourceId is required for phone_number source',
+					path: ['sourceId'],
+				});
+			}
+			if (data.sourceValue) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message:
+						'sourceValue must not be provided for phone_number source; it is derived from the referenced phone number',
 					path: ['sourceValue'],
 				});
 			}

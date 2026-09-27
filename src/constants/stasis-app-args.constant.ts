@@ -8,6 +8,7 @@ export const STASIS_WORKFLOW = {
 	IVR: 'ivr',
 	INBOUND_ROUTE: 'inbound-route',
 	AUTO_ATTENDANT: 'auto-attendant',
+	QUEUE: 'queue',
 } as const;
 
 export type StasisWorkflow = (typeof STASIS_WORKFLOW)[keyof typeof STASIS_WORKFLOW];
@@ -46,6 +47,23 @@ export function buildIvrAppArgs(input: {
 		input.tenantId,
 		input.ivrSessionId,
 		input.ivrId,
+	];
+}
+
+export function buildQueueAppArgs(input: {
+	tenantId: string;
+	queueId: string;
+	queueCallId: string;
+	leg: 'caller' | 'agent';
+	memberId?: string;
+}): string[] {
+	return [
+		STASIS_WORKFLOW.QUEUE,
+		input.tenantId,
+		input.queueCallId,
+		input.queueId,
+		input.leg,
+		input.memberId ?? '',
 	];
 }
 

@@ -19,6 +19,7 @@ export type InboundRoute = {
   enabled: boolean
 }
 export type IvrMenu = { id: string; name?: string; description?: string | null; announcementRecordingId?: string | null }
+export type Queue = { id: string; name: string; description?: string | null; strategy: string; enabled: boolean }
 export type SipTrunk = { id: string; name: string; authMode: string; username?: string | null; enabled: boolean; identifyIps?: { id?: string; match: string }[] }
 export type CallDirection = 'inbound' | 'outbound' | 'internal'
 export type CallStatus =

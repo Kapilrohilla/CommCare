@@ -2,11 +2,17 @@ import {
 	BadRequestException,
 	ConflictException,
 	ForbiddenException,
+	Inject,
 	Injectable,
 	NotFoundException,
+	forwardRef,
 } from '@nestjs/common';
 import { IVRService } from 'src/modules/ivr/services/ivr.service';
 import { ExtensionService } from 'src/modules/pbx/services/extension.service';
+import { QueuesService } from 'src/modules/inboundQueues/services/queues.service';
+import { PhoneNumberStatus } from 'src/modules/phoneNumbers/constants/phone-number.constant';
+import { PhoneNumbersService } from 'src/modules/phoneNumbers/services/phone-numbers.service';
+import { normalizeToE164 } from 'src/shared/utils/phone-number.util';
 import { AuthContext } from 'src/shared/types/auth.types';
 import {
 	InboundRouteDestinationType,
@@ -25,6 +31,10 @@ export class InboundRoutesService {
 		private readonly inboundRouteRepository: InboundRouteRepository,
 		private readonly extensionService: ExtensionService,
 		private readonly ivrService: IVRService,
+		@Inject(forwardRef(() => QueuesService))
+		private readonly queuesService: QueuesService,
+		@Inject(forwardRef(() => PhoneNumbersService))
+		private readonly phoneNumbersService: PhoneNumbersService,
 	) {}
 
 	async createInboundRoute(
@@ -32,19 +42,27 @@ export class InboundRoutesService {
 		dto: CreateInboundRouteDto,
 	): Promise<InboundRoute> {
 		const tenantId = this.requireTenant(auth);
-		await this.validateSource(auth, dto);
+		const resolvedSourceValue = await this.validateAndResolveSource(auth, dto);
 		await this.validateDestination(auth, dto);
-		await this.ensureUniqueSourceValue(dto.sourceValue);
+
+		const enabled = dto.enabled ?? true;
+		if (dto.sourceType === InboundRouteSourceType.PhoneNumber) {
+			if (enabled) {
+				await this.ensureNoConflictingPhoneNumberRoute(dto.sourceId!);
+			}
+		} else {
+			await this.ensureUniqueSourceValue(resolvedSourceValue);
+		}
 
 		const route = new InboundRoute();
 		route.tenantId = tenantId;
 		route.sourceType = dto.sourceType;
 		route.sourceId = dto.sourceId ?? null;
-		route.sourceValue = dto.sourceValue ?? null;
+		route.sourceValue = resolvedSourceValue;
 		route.destinationType = dto.destinationType;
 		route.destinationId = dto.destinationId ?? null;
 		route.destinationValue = dto.destinationValue ?? null;
-		route.enabled = dto.enabled ?? true;
+		route.enabled = enabled;
 
 		return this.inboundRouteRepository.create(route);
 	}
@@ -86,18 +104,26 @@ export class InboundRoutesService {
 					: route.destinationValue,
 		};
 
+		const nextEnabled = dto.enabled !== undefined ? dto.enabled : route.enabled;
+
 		if (
 			dto.sourceType !== undefined ||
 			dto.sourceId !== undefined ||
 			dto.sourceValue !== undefined
 		) {
-			await this.validateSource(auth, nextSource);
-			if (nextSource.sourceValue) {
-				await this.ensureUniqueSourceValue(nextSource.sourceValue, route.id);
+			const resolvedSourceValue = await this.validateAndResolveSource(
+				auth,
+				nextSource,
+			);
+			if (
+				nextSource.sourceType !== InboundRouteSourceType.PhoneNumber &&
+				resolvedSourceValue
+			) {
+				await this.ensureUniqueSourceValue(resolvedSourceValue, route.id);
 			}
 			route.sourceType = nextSource.sourceType;
 			route.sourceId = nextSource.sourceId ?? null;
-			route.sourceValue = nextSource.sourceValue ?? null;
+			route.sourceValue = resolvedSourceValue;
 		}
 
 		if (
@@ -115,6 +141,10 @@ export class InboundRoutesService {
 			route.enabled = dto.enabled;
 		}
 
+		if (route.sourceType === InboundRouteSourceType.PhoneNumber && nextEnabled) {
+			await this.ensureNoConflictingPhoneNumberRoute(route.sourceId!, route.id);
+		}
+
 		return this.inboundRouteRepository.save(route);
 	}
 
@@ -124,19 +154,37 @@ export class InboundRoutesService {
 	}
 
 	async findEnabledRouteByDid(did: string): Promise<InboundRoute | null> {
-		if (!did.trim()) {
+		const normalized = normalizeToE164(did);
+		if (!normalized) {
 			return null;
 		}
 
-		const digits = did.replace(/\D/g, '');
-		const candidates = [did.trim(), digits];
-		if (digits.length > 10) {
-			candidates.push(digits.slice(-10));
+		const phoneNumber = await this.phoneNumbersService.findByNormalizedNumber(normalized);
+		if (!phoneNumber || phoneNumber.status !== PhoneNumberStatus.Active) {
+			return null;
 		}
 
-		return this.inboundRouteRepository.getEnabledBySourceValues(
-			[...new Set(candidates)].filter(Boolean),
+		return this.inboundRouteRepository.getEnabledBySourceTypeAndId(
+			InboundRouteSourceType.PhoneNumber,
+			phoneNumber.id,
 		);
+	}
+
+	private async ensureNoConflictingPhoneNumberRoute(
+		sourceId: string,
+		excludeId?: string,
+	): Promise<void> {
+		const exists = await this.inboundRouteRepository.existsEnabledBySourceTypeAndId(
+			InboundRouteSourceType.PhoneNumber,
+			sourceId,
+			excludeId,
+		);
+		if (exists) {
+			throw new ConflictException({
+				code: 'PHONE_NUMBER_ROUTE_CONFLICT',
+				message: 'An enabled inbound route already exists for this phone number',
+			});
+		}
 	}
 
 	private async ensureUniqueSourceValue(
@@ -175,25 +223,36 @@ export class InboundRoutesService {
 		return route;
 	}
 
-	private async validateSource(
+	/** Validates the source reference and returns the sourceValue to persist. */
+	private async validateAndResolveSource(
 		auth: AuthContext,
 		dto: {
 			sourceType: InboundRouteSourceType;
 			sourceId?: string | null;
 			sourceValue?: string | null;
 		},
-	): Promise<void> {
-		if (dto.sourceType !== InboundRouteSourceType.Extension) {
-			return;
-		}
-
-		const tenantId = this.requireTenant(auth);
-		const extensions = await this.extensionService.getExtensionsByTenantId(
-			tenantId,
-		);
-
-		if (!extensions.some((extension) => extension.id === dto.sourceId)) {
-			throw new NotFoundException('Source extension not found');
+	): Promise<string | null> {
+		switch (dto.sourceType) {
+			case InboundRouteSourceType.Extension: {
+				const tenantId = this.requireTenant(auth);
+				const extensions = await this.extensionService.getExtensionsByTenantId(
+					tenantId,
+				);
+				if (!extensions.some((extension) => extension.id === dto.sourceId)) {
+					throw new NotFoundException('Source extension not found');
+				}
+				return dto.sourceValue?.trim() || null;
+			}
+			case InboundRouteSourceType.PhoneNumber: {
+				const tenantId = this.requireTenant(auth);
+				const phoneNumber = await this.phoneNumbersService.getActivePhoneNumberForTenant(
+					tenantId,
+					dto.sourceId!,
+				);
+				return phoneNumber.number;
+			}
+			case InboundRouteSourceType.FeatureCode:
+				return dto.sourceValue?.trim() || null;
 		}
 	}
 
@@ -223,9 +282,28 @@ export class InboundRoutesService {
 			case InboundRouteDestinationType.IVR:
 				await this.ivrService.getIvrById(auth, dto.destinationId!);
 				return;
-			case InboundRouteDestinationType.Queue:
+			case InboundRouteDestinationType.Queue: {
+				const tenantId = this.requireTenant(auth);
+				await this.queuesService.getEnabledQueueForTenant(tenantId, dto.destinationId!);
 				return;
+			}
 		}
+	}
+
+	/** Used by QueuesService to block deleting a queue still targeted by a route. */
+	async existsRouteReferencingDestination(
+		destinationType: InboundRouteDestinationType,
+		destinationId: string,
+	): Promise<boolean> {
+		return this.inboundRouteRepository.existsByDestination(destinationType, destinationId);
+	}
+
+	/** Used by PhoneNumbersService to block deleting a phone number still referenced by a route. */
+	async existsRouteReferencingSource(
+		sourceType: InboundRouteSourceType,
+		sourceId: string,
+	): Promise<boolean> {
+		return this.inboundRouteRepository.existsBySource(sourceType, sourceId);
 	}
 
 	private requireTenant(auth: AuthContext): string {

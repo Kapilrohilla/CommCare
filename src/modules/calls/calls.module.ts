@@ -13,6 +13,7 @@ import { Click2CallWorkflowService } from './services/click2call-workflow.servic
 import { IvrCallWorkflowService } from './services/ivr-call-workflow.service';
 import { InboundRouteCallWorkflowService } from './services/inbound-route-call-workflow.service';
 import { AutoAttendantCallWorkflowService } from './services/auto-attendant-call-workflow.service';
+import { QueueCallWorkflowService } from './services/queue-call-workflow.service';
 import { CallsRepository } from './repositories/calls.repository';
 import { CallLegsRepository } from './repositories/call-legs.repository';
 import { CallEventsRepository } from './repositories/call-events.repository';
@@ -21,6 +22,7 @@ import { QueueModule } from 'src/infra/queue/queue.module';
 import { IvrModule } from '../ivr/ivr.module';
 import { RoutingModule } from '../routing/routing.module';
 import { SystemRecordingModule } from '../systemRecording/system-recording.module';
+import { InboundQueuesModule } from '../inboundQueues/inboundQueues.module';
 
 @Module({
 	imports: [
@@ -34,6 +36,7 @@ import { SystemRecordingModule } from '../systemRecording/system-recording.modul
 		RedisModule,
 		forwardRef(() => IvrModule),
 		forwardRef(() => RoutingModule),
+		forwardRef(() => InboundQueuesModule),
 		SystemRecordingModule,
 	],
 	controllers: [CallsController],
@@ -49,6 +52,7 @@ import { SystemRecordingModule } from '../systemRecording/system-recording.modul
 		IvrCallWorkflowService,
 		InboundRouteCallWorkflowService,
 		AutoAttendantCallWorkflowService,
+		QueueCallWorkflowService,
 		Logger,
 	],
 	exports: [

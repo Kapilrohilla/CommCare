@@ -7,6 +7,7 @@ import { Click2CallWorkflowService } from './click2call-workflow.service';
 import { InboundRouteCallWorkflowService } from './inbound-route-call-workflow.service';
 import { IvrCallWorkflowService } from './ivr-call-workflow.service';
 import { AutoAttendantCallWorkflowService } from './auto-attendant-call-workflow.service';
+import { QueueCallWorkflowService } from './queue-call-workflow.service';
 
 const IDEMPOTENCY_NAMESPACE = 'AriEventIdempotency';
 const IDEMPOTENCY_TTL_SECONDS = 300;
@@ -29,12 +30,14 @@ export class CallWorkflowRouterService {
 		ivrCallWorkflowService: IvrCallWorkflowService,
 		inboundRouteCallWorkflowService: InboundRouteCallWorkflowService,
 		autoAttendantCallWorkflowService: AutoAttendantCallWorkflowService,
+		queueCallWorkflowService: QueueCallWorkflowService,
 	) {
 		this.workflowServices = [
 			click2CallWorkflowService,
 			ivrCallWorkflowService,
 			inboundRouteCallWorkflowService,
 			autoAttendantCallWorkflowService,
+			queueCallWorkflowService,
 		];
 	}
 

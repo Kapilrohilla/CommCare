@@ -1,5 +1,5 @@
 import { request } from '../api'
-import type { InboundRoute, IvrMenu, SipTrunk } from './types'
+import type { InboundRoute, IvrMenu, Queue, SipTrunk } from './types'
 
 export const inboundRoutesService = {
     list: (token: string) => request<InboundRoute[]>('/inbound-routes/tenant', { token }),
@@ -15,6 +15,10 @@ export const ivrService = {
     create: (payload: Partial<IvrMenu>, token: string) => request<IvrMenu>('/ivr', { method: 'POST', body: JSON.stringify(payload), token }),
     update: (id: string, payload: Partial<IvrMenu>, token: string) => request<IvrMenu>(`/ivr/${id}`, { method: 'PATCH', body: JSON.stringify(payload), token }),
     remove: (id: string, token: string) => request(`/ivr/${id}`, { method: 'DELETE', token }),
+}
+
+export const queuesService = {
+    list: (token: string) => request<Queue[]>('/queues', { token }),
 }
 
 export const trunksService = {

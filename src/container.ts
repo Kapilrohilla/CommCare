@@ -19,6 +19,8 @@ import { IvrModule } from './modules/ivr/ivr.module';
 import { RoutingModule } from './modules/routing/routing.module';
 import { GlobalModule } from './modules/global/global.module';
 import { TrunkModule } from './modules/trunk/trunk.module';
+import { InboundQueuesModule } from './modules/inboundQueues/inboundQueues.module';
+import { PhoneNumbersModule } from './modules/phoneNumbers/phoneNumbers.module';
 
 @Module({
   imports: [
@@ -42,6 +44,8 @@ import { TrunkModule } from './modules/trunk/trunk.module';
     RoutingModule,
     TrunkModule,
     GlobalModule,
+    InboundQueuesModule,
+    PhoneNumbersModule,
   ],
 })
 export class AppModule {}
