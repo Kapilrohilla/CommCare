@@ -12,9 +12,9 @@ import {
   Voicemail,
   X,
 } from 'lucide-vue-next'
-import { ivrService, queuesService } from '../lib/services/configuration.service'
+import { ivrService, phoneNumbersService, queuesService } from '../lib/services/configuration.service'
 import { tenancyService } from '../lib/services/tenancy.service'
-import type { Extension, IvrMenu, Queue } from '../lib/services/types'
+import type { Extension, IvrMenu, PhoneNumber, Queue } from '../lib/services/types'
 import { useSessionStore } from '../stores/session'
 
 type DestinationType = 'ivr' | 'queue' | 'extension' | 'voicemail' | 'external_number' | 'hangup'
@@ -24,7 +24,7 @@ const emit = defineEmits<{
   cancel: []
   submit: [payload: {
     sourceType: 'phone_number'
-    sourceValue: string
+    sourceId: string
     destinationType: DestinationType
     destinationId?: string
     destinationValue?: string
@@ -44,7 +44,7 @@ const DESTINATIONS: Array<{ type: DestinationType; label: string; description: s
 const session = useSessionStore()
 const token = computed(() => session.current?.token ?? '')
 
-const sourceValue = ref('')
+const sourcePhoneNumberId = ref('')
 const destinationType = ref<DestinationType>('ivr')
 const destinationId = ref('')
 const destinationValue = ref('')
@@ -54,7 +54,12 @@ const localError = ref('')
 const ivrMenus = ref<IvrMenu[]>([])
 const queues = ref<Queue[]>([])
 const extensions = ref<Extension[]>([])
+const phoneNumbers = ref<PhoneNumber[]>([])
 const optionsLoading = ref(false)
+
+const selectedPhoneNumber = computed(
+  () => phoneNumbers.value.find((item) => item.id === sourcePhoneNumberId.value) ?? null,
+)
 
 const needsIdTarget = computed(
   () =>
@@ -111,7 +116,7 @@ const selectedQueue = computed(() => queues.value.find((item) => item.id === des
 const selectedExtension = computed(() => extensions.value.find((item) => item.id === destinationId.value) ?? null)
 
 const isReady = computed(() => {
-  if (!sourceValue.value.trim()) return false
+  if (!sourcePhoneNumberId.value) return false
   if (needsIdTarget.value && !destinationId.value) return false
   if (destinationType.value === 'external_number' && !destinationValue.value.trim()) return false
   return true
@@ -121,14 +126,16 @@ async function loadTargetOptions() {
   if (!token.value) return
   optionsLoading.value = true
   try {
-    const [ivrResult, queueResult, extensionResult] = await Promise.allSettled([
+    const [ivrResult, queueResult, extensionResult, phoneNumberResult] = await Promise.allSettled([
       ivrService.list(token.value),
       queuesService.list(token.value),
       tenancyService.extensions(token.value),
+      phoneNumbersService.list(token.value, { status: 'active' }),
     ])
     ivrMenus.value = ivrResult.status === 'fulfilled' ? ivrResult.value : []
     queues.value = queueResult.status === 'fulfilled' ? queueResult.value : []
     extensions.value = extensionResult.status === 'fulfilled' ? extensionResult.value : []
+    phoneNumbers.value = phoneNumberResult.status === 'fulfilled' ? phoneNumberResult.value : []
   } finally {
     optionsLoading.value = false
   }
@@ -138,7 +145,7 @@ watch(
   () => props.open,
   (open) => {
     if (!open) return
-    sourceValue.value = ''
+    sourcePhoneNumberId.value = ''
     destinationType.value = 'ivr'
     destinationId.value = ''
     destinationValue.value = ''
@@ -156,8 +163,8 @@ function selectDestination(type: DestinationType) {
 
 function onSubmit() {
   localError.value = ''
-  if (!sourceValue.value.trim()) {
-    localError.value = 'Enter the inbound phone number or DID.'
+  if (!sourcePhoneNumberId.value) {
+    localError.value = 'Select the inbound phone number or DID.'
     return
   }
   if (needsIdTarget.value && !destinationId.value) {
@@ -170,7 +177,7 @@ function onSubmit() {
   }
   emit('submit', {
     sourceType: 'phone_number',
-    sourceValue: sourceValue.value.trim(),
+    sourceId: sourcePhoneNumberId.value,
     destinationType: destinationType.value,
     destinationId: needsIdTarget.value ? destinationId.value : undefined,
     destinationValue: destinationType.value === 'external_number' ? destinationValue.value.trim() : undefined,
@@ -204,9 +211,20 @@ function onSubmit() {
               <span>Inbound source</span>
               <span class="route-modal__section-hint">When this number receives a call</span>
             </div>
-            <div class="route-modal__source">
-              <span class="route-modal__source-icon" aria-hidden="true"><Phone :size="16" /></span>
-              <input v-model="sourceValue" type="text" placeholder="+14155550100" required />
+            <div class="route-modal__target">
+              <select v-model="sourcePhoneNumberId" required>
+                <option value="" disabled>{{ optionsLoading ? 'Loading…' : 'Select a phone number' }}</option>
+                <option v-for="item in phoneNumbers" :key="item.id" :value="item.id">{{ item.number }} — {{ item.name }}</option>
+              </select>
+
+              <p v-if="!optionsLoading && phoneNumbers.length === 0" class="route-modal__empty-hint">
+                No active phone numbers yet — register one on the Phone numbers page first.
+              </p>
+
+              <div v-if="selectedPhoneNumber" class="route-modal__preview">
+                <span class="route-modal__preview-icon" aria-hidden="true"><Phone :size="14" /></span>
+                <span><strong>{{ selectedPhoneNumber.number }}</strong><br />{{ selectedPhoneNumber.name }}</span>
+              </div>
             </div>
           </div>
 

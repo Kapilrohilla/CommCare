@@ -1669,6 +1669,111 @@ th:last-child, td:last-child { text-align: right; }
   .ivr-modal__actions .button { flex: 1; }
 }
 
+/* Phone number modal */
+.phone-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(24, 30, 29, .55);
+  backdrop-filter: blur(2px);
+}
+.phone-modal {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 48px);
+  background: #fff;
+  border: 1px solid #e6ebe7;
+  border-radius: 16px;
+  box-shadow: 0 28px 80px rgba(20, 25, 24, .28);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.phone-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 24px 0;
+}
+.phone-modal__badge {
+  display: inline-flex;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #fdf1dc;
+  color: var(--amber-dark);
+  font: 600 10px 'DM Mono', monospace;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.phone-modal__close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #8b9692;
+}
+.phone-modal__close:hover { background: #f2f4f2; color: var(--ink); }
+.phone-modal__intro { padding: 14px 24px 4px; display: grid; gap: 8px; }
+.phone-modal__intro h2 {
+  font: 700 24px/1.15 'Space Grotesk', sans-serif;
+  letter-spacing: -.7px;
+  color: var(--ink);
+}
+.phone-modal__intro p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; max-width: 52ch; }
+.phone-modal__form { display: grid; gap: 16px; padding: 16px 24px 20px; }
+.phone-modal__field { display: grid; gap: 7px; }
+.phone-modal__field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.phone-modal__field input,
+.phone-modal__field select,
+.phone-modal__field textarea {
+  width: 100%;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0 12px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+}
+.phone-modal__field textarea { height: auto; min-height: 64px; padding: 10px 12px; resize: vertical; }
+.phone-modal__field input:focus,
+.phone-modal__field select:focus,
+.phone-modal__field textarea:focus {
+  outline: 0;
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px rgba(226, 165, 52, .16);
+}
+.phone-modal__grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.phone-modal__error { margin: 0; color: #b42318; font-size: 12px; }
+.phone-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #edf0ed;
+  margin-top: 4px;
+}
+
+@media (max-width: 640px) {
+  .phone-modal__header,
+  .phone-modal__intro,
+  .phone-modal__form { padding-left: 18px; padding-right: 18px; }
+  .phone-modal__grid-2 { grid-template-columns: 1fr; }
+  .phone-modal__footer { flex-direction: column-reverse; align-items: stretch; }
+  .phone-modal__footer .button { flex: 1; }
+}
+
 /* System recording create modal */
 .recording-modal-backdrop {
   position: fixed;

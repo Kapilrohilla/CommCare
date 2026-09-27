@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { GripVertical, Trash2 } from 'lucide-vue-next'
+import type { SystemRecording } from '../lib/services/integrations.service'
 import type { Extension, IvrMenu, Queue } from '../lib/services/types'
 
 export type KeypadRow = {
@@ -18,6 +19,7 @@ const props = defineProps<{
   extensions: Extension[]
   queues: Queue[]
   ivrMenus: IvrMenu[]
+  recordings: SystemRecording[]
   excludeIvrId?: string
 }>()
 const emit = defineEmits<{ remove: [] }>()
@@ -27,7 +29,8 @@ const needsIdTarget = computed(
   () =>
     row.value.destinationType === 'IB_Queue' ||
     row.value.destinationType === 'Extension' ||
-    row.value.destinationType === 'IVR',
+    row.value.destinationType === 'IVR' ||
+    row.value.destinationType === 'Announcement',
 )
 const needsValueTarget = computed(() => row.value.destinationType === 'PhoneNumber')
 
@@ -46,6 +49,8 @@ const targetOptions = computed(() => {
       return props.ivrMenus
         .filter((item) => item.id !== props.excludeIvrId)
         .map((item) => ({ id: item.id, label: item.name || 'Untitled IVR menu' }))
+    case 'Announcement':
+      return props.recordings.map((item) => ({ id: item.id, label: item.name || 'Untitled recording' }))
     default:
       return []
   }

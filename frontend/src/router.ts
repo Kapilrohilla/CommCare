@@ -14,6 +14,7 @@ import InboundRoutesView from './views/InboundRoutesView.vue'
 import IvrMenusView from './views/IvrMenusView.vue'
 import RecordingsView from './views/RecordingsView.vue'
 import SipTrunksView from './views/SipTrunksView.vue'
+import PhoneNumbersView from './views/PhoneNumbersView.vue'
 import WebhooksView from './views/WebhooksView.vue'
 import WebhookLogsView from './views/WebhookLogsView.vue'
 import SystemHealthView from './views/SystemHealthView.vue'
@@ -41,6 +42,7 @@ const router = createRouter({
                 protectedRoute('ivr', 'ivr-menus', 'IVR menus', IvrMenusView),
                 protectedRoute('recordings', 'recordings', 'System recordings', RecordingsView),
                 protectedRoute('trunks', 'sip-trunks', 'SIP trunks', SipTrunksView),
+                protectedRoute('phone-numbers', 'phone-numbers', 'Phone numbers', PhoneNumbersView),
                 protectedRoute('webhooks', 'webhooks', 'Webhooks', WebhooksView),
                 protectedRoute('webhook-logs', 'webhook-logs', 'Delivery logs', WebhookLogsView),
                 protectedRoute('health', 'system-health', 'System health', SystemHealthView, ['platform-administrator', 'administrator']),

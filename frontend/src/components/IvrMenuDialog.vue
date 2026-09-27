@@ -13,13 +13,11 @@ const KEYPAD_DESTINATION_TYPES = [
   { type: 'Extension', label: 'Extension' },
   { type: 'IVR', label: 'IVR Sub-Menu' },
   { type: 'PhoneNumber', label: 'External Number' },
+  { type: 'Announcement', label: 'System Recording' },
   { type: 'hangup', label: 'Hangup' },
 ]
 
-const FINAL_TIMEOUT_DESTINATION_TYPES = [
-  ...KEYPAD_DESTINATION_TYPES,
-  { type: 'Announcement', label: 'Play Announcement' },
-]
+const FINAL_TIMEOUT_DESTINATION_TYPES = KEYPAD_DESTINATION_TYPES
 
 const DIGIT_ORDER = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '*', '#']
 const INPUT_TIMEOUT_OPTIONS = [3, 5, 8, 10, 15, 20]
@@ -479,6 +477,7 @@ async function onSubmit() {
                       :extensions="extensions"
                       :queues="queues"
                       :ivr-menus="ivrMenus"
+                      :recordings="recordings"
                       :exclude-ivr-id="menu?.id"
                       @remove="removeRow(row._localId)"
                     />

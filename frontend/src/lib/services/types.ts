@@ -46,6 +46,20 @@ export type IvrOption = {
   createdAt?: string
   updatedAt?: string
 }
+export type PhoneNumberType = 'did'
+export type PhoneNumberStatusValue = 'active' | 'inactive'
+export type PhoneNumber = {
+  id: string
+  tenantId: string
+  sipTrunkId: string
+  number: string
+  type: PhoneNumberType
+  status: PhoneNumberStatusValue
+  name: string
+  description?: string | null
+  createdAt?: string
+  updatedAt?: string
+}
 export type Queue = { id: string; name: string; description?: string | null; strategy: string; enabled: boolean }
 export type SipTrunk = { id: string; name: string; authMode: string; username?: string | null; enabled: boolean; identifyIps?: { id?: string; match: string }[] }
 export type CallDirection = 'inbound' | 'outbound' | 'internal'

@@ -1,5 +1,5 @@
 import { request } from '../api'
-import type { InboundRoute, IvrMenu, IvrOption, Queue, SipTrunk } from './types'
+import type { InboundRoute, IvrMenu, IvrOption, PhoneNumber, Queue, SipTrunk } from './types'
 
 export const inboundRoutesService = {
     list: (token: string) => request<InboundRoute[]>('/inbound-routes/tenant', { token }),
@@ -25,6 +25,23 @@ export const ivrOptionsService = {
         request<IvrOption>(`/ivr/${ivrId}/options/${optionId}`, { method: 'PATCH', body: JSON.stringify(payload), token }),
     remove: (ivrId: string, optionId: string, token: string) =>
         request(`/ivr/${ivrId}/options/${optionId}`, { method: 'DELETE', token }),
+}
+
+export const phoneNumbersService = {
+    list: (token: string, query?: { sipTrunkId?: string; status?: string; search?: string }) => {
+        const params = new URLSearchParams()
+        if (query?.sipTrunkId) params.set('sipTrunkId', query.sipTrunkId)
+        if (query?.status) params.set('status', query.status)
+        if (query?.search) params.set('search', query.search)
+        const qs = params.toString()
+        return request<PhoneNumber[]>(`/phone-numbers${qs ? `?${qs}` : ''}`, { token })
+    },
+    get: (id: string, token: string) => request<PhoneNumber>(`/phone-numbers/${id}`, { token }),
+    create: (payload: Partial<PhoneNumber>, token: string) =>
+        request<PhoneNumber>('/phone-numbers', { method: 'POST', body: JSON.stringify(payload), token }),
+    update: (id: string, payload: Partial<PhoneNumber>, token: string) =>
+        request<PhoneNumber>(`/phone-numbers/${id}`, { method: 'PATCH', body: JSON.stringify(payload), token }),
+    remove: (id: string, token: string) => request(`/phone-numbers/${id}`, { method: 'DELETE', token }),
 }
 
 export const queuesService = {
