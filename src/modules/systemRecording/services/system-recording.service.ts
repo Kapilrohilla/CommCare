@@ -111,17 +111,13 @@ export class SystemRecordingService {
 	): Promise<void> {
 		const recording = await this.getRecordingForTenant(auth, id);
 
-		if (recording.storageKey) {
-			try {
-				await this.storageService.delete({ path: recording.storageKey });
-			} catch (error) {
-				this.logger.warn(
-					`Failed to delete storage object ${recording.storageKey}: ${error instanceof Error ? error.message : error}`,
-				);
-			}
+		if (recording.status === SystemRecordingStatus.PROCESSING) {
+			throw new BadRequestException(
+				'Cannot delete a system recording while it is processing',
+			);
 		}
 
-		await this.systemRecordingRepository.delete(recording.id);
+		await this.systemRecordingRepository.softDelete(recording.id);
 	}
 
 	async createUploadUrl(
@@ -243,8 +239,10 @@ export class SystemRecordingService {
 			data.systemRecordingId,
 		);
 
-		if (!recording) {
-			this.logger.warn(`Recording ${data.systemRecordingId} not found`);
+		if (!recording || recording.deletedAt) {
+			this.logger.warn(
+				`Recording ${data.systemRecordingId} not found or soft-deleted`,
+			);
 			return;
 		}
 
@@ -266,8 +264,10 @@ export class SystemRecordingService {
 			data.systemRecordingId,
 		);
 
-		if (!recording) {
-			this.logger.warn(`Recording ${data.systemRecordingId} not found`);
+		if (!recording || recording.deletedAt) {
+			this.logger.warn(
+				`Recording ${data.systemRecordingId} not found or soft-deleted`,
+			);
 			return;
 		}
 
@@ -424,7 +424,11 @@ export class SystemRecordingService {
 			tenantId,
 		);
 
-		if (!recording?.storageKey || recording.status !== SystemRecordingStatus.ACTIVE) {
+		if (
+			!recording?.storageKey ||
+			recording.deletedAt ||
+			recording.status !== SystemRecordingStatus.ACTIVE
+		) {
 			return null;
 		}
 

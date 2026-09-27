@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { BaseRepository } from 'src/infra/database/connectors/baseRepository';
 import { SystemRecording } from '../entity/system-recording.entity';
@@ -24,8 +24,8 @@ export class SystemRecordingRepository {
 		return this.writerRepository.save(systemRecording);
 	}
 
-	async delete(id: string): Promise<void> {
-		await this.writerRepository.delete(id);
+	async softDelete(id: string): Promise<void> {
+		await this.writerRepository.softDelete(id);
 	}
 
 	async getByTenantId(tenantId: string): Promise<SystemRecording[]> {

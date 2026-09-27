@@ -21,8 +21,8 @@ const userInitials = computed(() => initials(userName.value))
 
 const groups: NavGroup[] = [
   { label: 'Command center', items: [{ label: 'Overview', to: '/', icon: LayoutDashboard }, { label: 'Setup checklist', to: '/setup', icon: Settings2 }] },
-  { label: 'Calling', items: [{ label: 'Dialer', to: '/dialer', icon: Phone }, { label: 'Calls', to: '/calls', icon: Activity }, { label: 'Recordings', to: '/recordings', icon: Radio }] },
-  { label: 'Configuration', items: [{ label: 'Users', to: '/users', icon: Users }, { label: 'Extensions', to: '/extensions', icon: Users }, { label: 'Inbound routes', to: '/inbound', icon: Radio }, { label: 'IVR menus', to: '/ivr', icon: Radio }, { label: 'SIP trunks', to: '/trunks', icon: Settings2 }] },
+  { label: 'Calling', items: [{ label: 'Dialer', to: '/dialer', icon: Phone }, { label: 'Calls', to: '/calls', icon: Activity }] },
+  { label: 'Configuration', items: [{ label: 'Users', to: '/users', icon: Users }, { label: 'Extensions', to: '/extensions', icon: Users }, { label: 'Inbound routes', to: '/inbound', icon: Radio }, { label: 'IVR menus', to: '/ivr', icon: Radio }, { label: 'System recordings', to: '/recordings', icon: Radio }, { label: 'SIP trunks', to: '/trunks', icon: Settings2 }] },
   { label: 'Integrations & system', items: [{ label: 'Webhooks', to: '/webhooks', icon: Activity }, { label: 'Delivery logs', to: '/webhook-logs', icon: Activity }, { label: 'System health', to: '/health', icon: ShieldCheck }, { label: 'Settings', to: '/settings', icon: Settings2, roles: ['administrator', 'platform-administrator'] }] },
 ]
 

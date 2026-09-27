@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { Plus } from 'lucide-vue-next'
-import DetailDrawer from '../components/DetailDrawer.vue'
+import { MoreHorizontal, Plus } from 'lucide-vue-next'
+import CreateSystemRecordingDialog, {
+  type CreateSystemRecordingPayload,
+} from '../components/CreateSystemRecordingDialog.vue'
 import ResourceState from '../components/ResourceState.vue'
 import StatusBadge from '../components/StatusBadge.vue'
+import SystemRecordingActionsDialog from '../components/SystemRecordingActionsDialog.vue'
 import { ApiError } from '../lib/api'
 import { recordingsService, type SystemRecording } from '../lib/services/integrations.service'
 import { useSessionStore } from '../stores/session'
@@ -14,13 +17,13 @@ const session = useSessionStore()
 const recordings = ref<SystemRecording[]>([])
 const state = ref<ResourceMode>('loading')
 const errorMessage = ref('')
-const selected = ref<SystemRecording | null>(null)
+const actionTarget = ref<SystemRecording | null>(null)
 const creating = ref(false)
-const uploading = ref(false)
+const deleting = ref(false)
+const createError = ref('')
 const actionError = ref('')
-const newName = ref('')
-const selectedFile = ref<File | null>(null)
 const createOpen = ref(false)
+const actionsOpen = ref(false)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 const token = computed(() => session.current?.token ?? '')
 
@@ -54,8 +57,8 @@ function startPolling(id: string) {
   pollTimer = setInterval(async () => {
     try {
       const latest = await recordingsService.get(id, token.value)
-      selected.value = latest
       recordings.value = recordings.value.map((item) => (item.id === id ? latest : item))
+      if (actionTarget.value?.id === id) actionTarget.value = latest
       if (latest.status === 'active' || latest.status === 'failed') stopPolling()
     } catch {
       // keep last confirmed state
@@ -63,51 +66,71 @@ function startPolling(id: string) {
   }, 2500)
 }
 
-async function createRecording() {
-  if (!newName.value.trim()) {
-    actionError.value = 'Enter a recording name.'
-    return
-  }
-  creating.value = true
+function openActions(recording: SystemRecording) {
+  actionTarget.value = recording
   actionError.value = ''
+  actionsOpen.value = true
+}
+
+function closeActions() {
+  actionsOpen.value = false
+  actionTarget.value = null
+  actionError.value = ''
+}
+
+async function createRecording(payload: CreateSystemRecordingPayload) {
+  creating.value = true
+  createError.value = ''
   try {
-    const created = await recordingsService.create({ name: newName.value.trim() }, token.value)
+    const created = await recordingsService.create(
+      { name: payload.name, description: payload.description },
+      token.value,
+    )
+
+    if (payload.sourceType === 'tts') {
+      await recordingsService.update(
+        created.id,
+        { sourceType: 'tts', ttsText: payload.ttsText },
+        token.value,
+      )
+      const processing = await recordingsService.process(created.id, token.value)
+      createOpen.value = false
+      await loadRecordings()
+      startPolling(processing.id)
+      return
+    }
+
+    await recordingsService.update(created.id, { sourceType: 'upload' }, token.value)
+    const { url } = await recordingsService.uploadUrl(created.id, payload.file.name, token.value)
+    await fetch(url, {
+      method: 'PUT',
+      body: payload.file,
+      headers: { 'Content-Type': payload.file.type || 'application/octet-stream' },
+    })
+    const confirmed = await recordingsService.confirmUpload(created.id, payload.file.name, token.value)
     createOpen.value = false
-    newName.value = ''
     await loadRecordings()
-    selected.value = created
+    startPolling(confirmed.id)
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : 'Recording could not be created.'
+    createError.value = error instanceof Error ? error.message : 'Recording could not be created.'
   } finally {
     creating.value = false
   }
 }
 
-async function uploadAudio() {
-  if (!selected.value || !selectedFile.value) {
-    actionError.value = 'Choose an audio file to upload (.wav, .mp3, or .gsm).'
-    return
-  }
-  const fileName = selectedFile.value.name
-  if (!/\.(wav|mp3|gsm)$/i.test(fileName)) {
-    actionError.value = 'File must end in .wav, .mp3, or .gsm.'
-    return
-  }
-  uploading.value = true
+async function deleteRecording() {
+  if (!actionTarget.value) return
+  deleting.value = true
   actionError.value = ''
   try {
-    await recordingsService.update(selected.value.id, { sourceType: 'upload' }, token.value)
-    const { url } = await recordingsService.uploadUrl(selected.value.id, fileName, token.value)
-    await fetch(url, { method: 'PUT', body: selectedFile.value, headers: { 'Content-Type': selectedFile.value.type || 'application/octet-stream' } })
-    const confirmed = await recordingsService.confirmUpload(selected.value.id, fileName, token.value)
-    selected.value = confirmed
-    selectedFile.value = null
-    startPolling(confirmed.id)
+    await recordingsService.remove(actionTarget.value.id, token.value)
+    closeActions()
+    stopPolling()
     await loadRecordings()
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : 'Upload failed.'
+    actionError.value = error instanceof Error ? error.message : 'Recording could not be deleted.'
   } finally {
-    uploading.value = false
+    deleting.value = false
   }
 }
 
@@ -122,7 +145,7 @@ onUnmounted(stopPolling)
         <p class="eyebrow">Configuration</p>
         <h1>System recordings</h1>
         <p class="page-heading__copy">
-          Upload announcement audio for IVR. Text-to-speech generation is supported by the backend but deferred in this UI.
+          Upload announcement audio or generate TTS prompts for IVR menus and dialplan greetings.
         </p>
       </div>
       <div class="heading-actions">
@@ -149,61 +172,52 @@ onUnmounted(stopPolling)
               <th>Source</th>
               <th>Status</th>
               <th>Duration</th>
+              <th class="table-actions-col">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="recording in recordings"
-              :key="recording.id"
-              class="table-row--clickable"
-              @click="selected = recording"
-            >
+            <tr v-for="recording in recordings" :key="recording.id">
               <td><strong>{{ recording.name || recording.id }}</strong></td>
               <td>{{ recording.sourceType || '—' }}</td>
               <td><StatusBadge :status="recording.status" /></td>
               <td>{{ recording.duration ? `${recording.duration}s` : '—' }}</td>
+              <td class="table-actions-col">
+                <button
+                  class="icon-button"
+                  type="button"
+                  aria-label="Take action on system recording"
+                  @click="openActions(recording)"
+                >
+                  <MoreHorizontal :size="17" />
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
-        <ResourceState v-if="state === 'empty'" state="empty" title="No system recordings" message="Create a recording shell, then upload audio." />
+        <ResourceState
+          v-if="state === 'empty'"
+          state="empty"
+          title="No system recordings"
+          message="Create a recording and upload audio or generate TTS for IVR prompts."
+        />
       </div>
     </section>
 
-    <div v-if="createOpen" class="dialog-backdrop" role="presentation" @click.self="createOpen = false">
-      <section class="dialog dialog--form" role="dialog" aria-modal="true" aria-label="New system recording">
-        <span class="overline">Recordings</span>
-        <h2>New system recording</h2>
-        <p>Creates a pending recording. Upload audio next; TTS remains future scope in the UI.</p>
-        <form class="dialog-form" @submit.prevent="createRecording">
-          <label>Name<input v-model="newName" type="text" placeholder="Main greeting" /></label>
-          <p v-if="actionError" class="dialer-message dialer-message--error">{{ actionError }}</p>
-          <div class="dialog__actions">
-            <button class="button button--secondary" type="button" @click="createOpen = false">Cancel</button>
-            <button class="button button--primary" type="submit" :disabled="creating">
-              {{ creating ? 'Creating…' : 'Create' }}
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+    <CreateSystemRecordingDialog
+      :open="createOpen"
+      :submitting="creating"
+      :error="createError"
+      @cancel="createOpen = false"
+      @submit="createRecording"
+    />
 
-    <DetailDrawer :open="Boolean(selected)" :title="selected?.name ?? 'Recording'" @close="selected = null; stopPolling()">
-      <div class="drawer-form">
-        <p>Status: <StatusBadge :status="selected?.status ?? 'unknown'" /></p>
-        <p>Source: {{ selected?.sourceType || 'Not set' }}</p>
-        <p v-if="selected?.errorMessage" class="dialer-message dialer-message--error">{{ selected.errorMessage }}</p>
-        <p class="field-hint">TTS generation is available on the backend (`sourceType: tts`) but is out of scope for this UI release.</p>
-        <label>
-          Upload audio
-          <input type="file" accept=".wav,.mp3,.gsm,audio/*" @change="selectedFile = ($event.target as HTMLInputElement).files?.[0] ?? null" />
-        </label>
-        <p v-if="actionError" class="dialer-message dialer-message--error">{{ actionError }}</p>
-        <div class="dialog__actions">
-          <button class="button button--primary" type="button" :disabled="uploading" @click="uploadAudio">
-            {{ uploading ? 'Uploading…' : 'Upload & process' }}
-          </button>
-        </div>
-      </div>
-    </DetailDrawer>
+    <SystemRecordingActionsDialog
+      :open="actionsOpen"
+      :recording="actionTarget"
+      :submitting="deleting"
+      :error="actionError"
+      @cancel="closeActions"
+      @delete="deleteRecording"
+    />
   </div>
 </template>

@@ -39,7 +39,7 @@ const router = createRouter({
                 protectedRoute('extensions', 'extensions', 'Extensions', ExtensionsView),
                 protectedRoute('inbound', 'inbound-routes', 'Inbound routes', InboundRoutesView),
                 protectedRoute('ivr', 'ivr-menus', 'IVR menus', IvrMenusView),
-                protectedRoute('recordings', 'recordings', 'Recordings', RecordingsView),
+                protectedRoute('recordings', 'recordings', 'System recordings', RecordingsView),
                 protectedRoute('trunks', 'sip-trunks', 'SIP trunks', SipTrunksView),
                 protectedRoute('webhooks', 'webhooks', 'Webhooks', WebhooksView),
                 protectedRoute('webhook-logs', 'webhook-logs', 'Delivery logs', WebhookLogsView),
