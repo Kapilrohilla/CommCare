@@ -87,7 +87,7 @@ onMounted(loadExtensions)
         </div>
       </div>
       <div class="table-scroll">
-        <table>
+        <table v-if="state !== 'empty'">
           <thead>
             <tr>
               <th>Extension</th>

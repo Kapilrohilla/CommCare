@@ -60,7 +60,31 @@ export type PhoneNumber = {
   createdAt?: string
   updatedAt?: string
 }
-export type Queue = { id: string; name: string; description?: string | null; strategy: string; enabled: boolean }
+export type QueueStrategy = 'ring_all' | 'round_robin' | 'least_recent' | 'fewest_calls' | 'random'
+export type Queue = {
+  id: string
+  tenantId?: string
+  name: string
+  description?: string | null
+  strategy: QueueStrategy
+  ringTimeoutSeconds: number
+  maxWaitTimeSeconds: number
+  maxCallers?: number | null
+  musicOnHoldId?: string | null
+  enabled: boolean
+  createdAt?: string
+  updatedAt?: string
+}
+export type QueueMember = {
+  id: string
+  queueId: string
+  agentId: string
+  priority: number
+  penalty: number
+  enabled: boolean
+  createdAt?: string
+  updatedAt?: string
+}
 export type SipTrunk = { id: string; name: string; authMode: string; username?: string | null; enabled: boolean; identifyIps?: { id?: string; match: string }[] }
 export type CallDirection = 'inbound' | 'outbound' | 'internal'
 export type CallStatus =

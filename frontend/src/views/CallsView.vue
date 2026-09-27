@@ -130,7 +130,7 @@ watch(query, scheduleLoad)
       />
 
       <div v-else class="table-scroll">
-        <table>
+        <table v-if="state !== 'empty'">
           <thead>
             <tr>
               <th>Contact</th>

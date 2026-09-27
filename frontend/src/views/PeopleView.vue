@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { Plus } from 'lucide-vue-next'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import CreateUserDialog from '../components/CreateUserDialog.vue'
-import DetailDrawer from '../components/DetailDrawer.vue'
+import EditUserDialog from '../components/EditUserDialog.vue'
 import ResourceState from '../components/ResourceState.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { ApiError } from '../lib/api'
@@ -22,7 +22,6 @@ const createOpen = ref(false)
 const creating = ref(false)
 const createError = ref('')
 const selected = ref<TenantUser | null>(null)
-const editName = ref('')
 const saving = ref(false)
 const confirmDelete = ref(false)
 const actionError = ref('')
@@ -78,36 +77,39 @@ async function createUser(payload: {
 
 function openUser(user: TenantUser) {
   selected.value = user
-  editName.value = user.name
   actionError.value = ''
 }
 
-async function saveUser() {
-  if (!selected.value || !editName.value.trim()) return
+async function saveUser(payload: { name: string; status: 'active' | 'inactive'; extensionId: string | null }) {
+  if (!selected.value) return
   saving.value = true
   actionError.value = ''
   try {
-    const result = await tenancyService.updateUser(selected.value.id, { name: editName.value.trim() }, token.value)
-    selected.value = { ...selected.value, ...result.user }
+    const patch: { name?: string; status?: 'active' | 'inactive' } = {}
+    if (payload.name !== selected.value.name) patch.name = payload.name
+    if (payload.status !== selected.value.status) patch.status = payload.status
+    if (Object.keys(patch).length) {
+      const result = await tenancyService.updateUser(selected.value.id, patch, token.value)
+      selected.value = { ...selected.value, ...result.user }
+    }
+
+    const previousExtensionId = selected.value.extensions?.[0]?.id ?? null
+    if (payload.extensionId !== previousExtensionId) {
+      if (previousExtensionId) {
+        await tenancyService.unassign(previousExtensionId, token.value)
+      }
+      if (payload.extensionId) {
+        await tenancyService.assign(
+          { userId: selected.value.id, extensionIds: [payload.extensionId] },
+          token.value,
+        )
+      }
+    }
+
+    selected.value = null
     await loadAll()
   } catch (error) {
     actionError.value = error instanceof Error ? error.message : 'Could not update user.'
-  } finally {
-    saving.value = false
-  }
-}
-
-async function toggleStatus() {
-  if (!selected.value) return
-  const next = selected.value.status === 'active' ? 'inactive' : 'active'
-  saving.value = true
-  actionError.value = ''
-  try {
-    const result = await tenancyService.updateUser(selected.value.id, { status: next }, token.value)
-    selected.value = { ...selected.value, ...result.user }
-    await loadAll()
-  } catch (error) {
-    actionError.value = error instanceof Error ? error.message : 'Could not update status.'
   } finally {
     saving.value = false
   }
@@ -164,7 +166,7 @@ onMounted(loadAll)
       </div>
 
       <div class="table-scroll">
-        <table>
+        <table v-if="state !== 'empty'">
           <thead>
             <tr>
               <th>Name</th>
@@ -203,28 +205,16 @@ onMounted(loadAll)
       @submit="createUser"
     />
 
-    <DetailDrawer :open="Boolean(selected)" :title="selected?.name ?? 'User'" @close="selected = null">
-      <form class="drawer-form" @submit.prevent="saveUser">
-        <label>
-          Name
-          <input v-model="editName" type="text" />
-        </label>
-        <p>Status: <StatusBadge :status="selected?.status ?? 'unknown'" /></p>
-        <p>Extensions: {{ selected?.extensions?.map((item) => item.extension).join(', ') || 'None' }}</p>
-        <p v-if="actionError" class="dialer-message dialer-message--error">{{ actionError }}</p>
-        <div class="dialog__actions">
-          <button class="button button--secondary" type="button" :disabled="saving" @click="toggleStatus">
-            {{ selected?.status === 'active' ? 'Disable' : 'Enable' }}
-          </button>
-          <button class="button button--secondary" type="button" :disabled="saving" @click="confirmDelete = true">
-            Delete
-          </button>
-          <button class="button button--primary" type="submit" :disabled="saving">
-            {{ saving ? 'Saving…' : 'Save' }}
-          </button>
-        </div>
-      </form>
-    </DetailDrawer>
+    <EditUserDialog
+      :open="Boolean(selected)"
+      :user="selected"
+      :extensions="extensions"
+      :submitting="saving"
+      :error="actionError"
+      @cancel="selected = null"
+      @delete="confirmDelete = true"
+      @submit="saveUser"
+    />
 
     <ConfirmDialog
       :open="confirmDelete"

@@ -151,7 +151,7 @@ watch([from, to], loadLogs)
       />
 
       <div v-else class="table-scroll">
-        <table>
+        <table v-if="state !== 'empty'">
           <thead>
             <tr>
               <th>Webhook</th>

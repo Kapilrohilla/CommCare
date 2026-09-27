@@ -1,5 +1,5 @@
 import { request } from '../api'
-import type { InboundRoute, IvrMenu, IvrOption, PhoneNumber, Queue, SipTrunk } from './types'
+import type { InboundRoute, IvrMenu, IvrOption, PhoneNumber, Queue, QueueMember, SipTrunk } from './types'
 
 export const inboundRoutesService = {
     list: (token: string) => request<InboundRoute[]>('/inbound-routes/tenant', { token }),
@@ -46,6 +46,20 @@ export const phoneNumbersService = {
 
 export const queuesService = {
     list: (token: string) => request<Queue[]>('/queues', { token }),
+    get: (id: string, token: string) => request<Queue>(`/queues/${id}`, { token }),
+    create: (payload: Partial<Queue>, token: string) =>
+        request<Queue>('/queues', { method: 'POST', body: JSON.stringify(payload), token }),
+    update: (id: string, payload: Partial<Queue>, token: string) =>
+        request<Queue>(`/queues/${id}`, { method: 'PATCH', body: JSON.stringify(payload), token }),
+    remove: (id: string, token: string) => request(`/queues/${id}`, { method: 'DELETE', token }),
+}
+
+export const queueMembersService = {
+    list: (queueId: string, token: string) => request<QueueMember[]>(`/queues/${queueId}/members`, { token }),
+    add: (queueId: string, payload: { agentId: string; priority?: number; penalty?: number; enabled?: boolean }, token: string) =>
+        request<QueueMember>(`/queues/${queueId}/members`, { method: 'POST', body: JSON.stringify(payload), token }),
+    remove: (queueId: string, agentId: string, token: string) =>
+        request(`/queues/${queueId}/members/${agentId}`, { method: 'DELETE', token }),
 }
 
 export const trunksService = {

@@ -6,14 +6,18 @@ import CreateInboundRouteDialog from '../components/CreateInboundRouteDialog.vue
 import ResourceState from '../components/ResourceState.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import { ApiError } from '../lib/api'
-import { inboundRoutesService } from '../lib/services/configuration.service'
-import type { InboundRoute } from '../lib/services/types'
+import { inboundRoutesService, ivrService, queuesService } from '../lib/services/configuration.service'
+import { tenancyService } from '../lib/services/tenancy.service'
+import type { Extension, InboundRoute, IvrMenu, Queue } from '../lib/services/types'
 import { useSessionStore } from '../stores/session'
 
 type ResourceMode = 'loading' | 'empty' | 'error' | 'forbidden' | 'ready'
 
 const session = useSessionStore()
 const routes = ref<InboundRoute[]>([])
+const extensions = ref<Extension[]>([])
+const queues = ref<Queue[]>([])
+const ivrMenus = ref<IvrMenu[]>([])
 const state = ref<ResourceMode>('loading')
 const errorMessage = ref('')
 const createOpen = ref(false)
@@ -22,12 +26,50 @@ const createError = ref('')
 const pendingDelete = ref<InboundRoute | null>(null)
 const token = computed(() => session.current?.token ?? '')
 
+function extensionLabel(extension: Extension): string {
+  const owner = extension.userInfo?.name || extension.callerIdName
+  return owner ? `Ext ${extension.extension} — ${owner}` : `Ext ${extension.extension}`
+}
+
+function destinationLabel(route: InboundRoute): string {
+  switch (route.destinationType) {
+    case 'external_number':
+      return route.destinationValue || '—'
+    case 'hangup':
+      return '—'
+    case 'extension':
+    case 'voicemail': {
+      const extension = extensions.value.find((item) => item.id === route.destinationId)
+      return extension ? extensionLabel(extension) : route.destinationId || '—'
+    }
+    case 'queue': {
+      const queue = queues.value.find((item) => item.id === route.destinationId)
+      return queue ? queue.name : route.destinationId || '—'
+    }
+    case 'ivr': {
+      const ivr = ivrMenus.value.find((item) => item.id === route.destinationId)
+      return ivr ? (ivr.name || 'Untitled IVR menu') : route.destinationId || '—'
+    }
+    default:
+      return route.destinationValue || route.destinationId || '—'
+  }
+}
+
 async function loadRoutes() {
   state.value = 'loading'
   errorMessage.value = ''
   try {
-    routes.value = await inboundRoutesService.list(token.value)
-    state.value = routes.value.length ? 'ready' : 'empty'
+    const [nextRoutes, extensionResult, queueResult, ivrResult] = await Promise.all([
+      inboundRoutesService.list(token.value),
+      tenancyService.extensions(token.value).catch(() => []),
+      queuesService.list(token.value).catch(() => []),
+      ivrService.list(token.value).catch(() => []),
+    ])
+    routes.value = nextRoutes
+    extensions.value = extensionResult
+    queues.value = queueResult
+    ivrMenus.value = ivrResult
+    state.value = nextRoutes.length ? 'ready' : 'empty'
   } catch (error) {
     routes.value = []
     if (error instanceof ApiError && error.status === 403) {
@@ -112,7 +154,7 @@ onMounted(loadRoutes)
 
     <section v-else class="surface table-surface">
       <div class="table-scroll">
-        <table>
+        <table v-if="state !== 'empty'">
           <thead>
             <tr>
               <th>Source</th>
@@ -127,7 +169,10 @@ onMounted(loadRoutes)
                 <strong>{{ route.sourceType }}</strong>
                 <small>{{ route.sourceValue || route.sourceId || '—' }}</small>
               </td>
-              <td>{{ route.destinationType }} · {{ route.destinationValue || route.destinationId || '—' }}</td>
+              <td>
+                <strong>{{ route.destinationType }}</strong>
+                <small>{{ destinationLabel(route) }}</small>
+              </td>
               <td><StatusBadge :status="route.enabled ? 'active' : 'inactive'" /></td>
               <td class="table-actions">
                 <button class="button button--secondary button--compact" type="button" @click="toggleEnabled(route)">

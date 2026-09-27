@@ -130,7 +130,7 @@ onMounted(loadPhoneNumbers)
 
     <section v-else class="surface table-surface">
       <div class="table-scroll">
-        <table>
+        <table v-if="state !== 'empty'">
           <thead>
             <tr>
               <th>Number</th>
