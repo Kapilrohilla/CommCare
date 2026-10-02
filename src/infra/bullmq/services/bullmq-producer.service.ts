@@ -14,7 +14,6 @@ const JOB_CONFIG = {
   REMOVE_ON_COMPLETE_AGE: 5 * 86400,
   REMOVE_ON_COMPLETE_COUNT: 100000,
   REMOVE_ON_FAIL: false,
-  DLQ_SUFFIX: '-DLQ',
 };
 
 @Injectable()
@@ -84,13 +83,9 @@ export class BullMQProducerService implements OnModuleInit, OnModuleDestroy {
     return false;
   }
 
-  /** Register all known queues so Bull Board can monitor them. Call after connect(). */
+  /** Register all known queues so Bull Board can monitor them. Failed jobs appear in each queue's Failed tab. Call after connect(). */
   prepareMonitoringQueues(eventNames: string[]): Queue[] {
-    const queueKeys = [
-      ...eventNames,
-      'scheduler',
-      ...eventNames.map((eventName) => `${eventName}${JOB_CONFIG.DLQ_SUFFIX}`),
-    ];
+    const queueKeys = [...eventNames, 'scheduler'];
 
     return queueKeys.map((name) => this.getQueue(name));
   }
@@ -217,12 +212,6 @@ export class BullMQProducerService implements OnModuleInit, OnModuleDestroy {
   async publishRetryEvent(eventName: string, message: unknown, id: string, retryCount: number, retrySubscriber: string): Promise<Job | undefined> {
     this.logger.log(`[bullmq-carrum-producer] Enqueuing retry job: ${eventName}, RetryCount: ${retryCount}`);
     return this._enqueueJob(eventName, message, eventName, id, retryCount, retrySubscriber);
-  }
-
-  async publishEventToDLQ(eventName: string, message: unknown, id: string, retryCount: number, retrySubscriber: string): Promise<Job | undefined> {
-    const dlqName = `${eventName}${JOB_CONFIG.DLQ_SUFFIX}`;
-    this.logger.warn(`[bullmq-carrum-producer] Enqueuing to DLQ: ${dlqName}`);
-    return this._enqueueJob(eventName, message, dlqName, id, retryCount, retrySubscriber);
   }
 
   private registerSignalHandlers(): void {
