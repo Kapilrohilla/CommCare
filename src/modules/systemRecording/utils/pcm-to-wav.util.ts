@@ -1,4 +1,4 @@
-const WAV_HEADER_SIZE = 44;
+export const WAV_HEADER_SIZE = 44;
 const BITS_PER_SAMPLE = 16;
 
 /** Wraps raw little-endian 16-bit PCM in a canonical 44-byte WAV header. */

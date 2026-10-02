@@ -59,6 +59,15 @@ describe('TextToSpeechService', () => {
 		});
 	});
 
+	it('rounds duration up to whole seconds to fit the integer column', async () => {
+		const { service } = build(TTS_VENDOR.AWS_POLLY, pcmToWav(Buffer.alloc(20000), 8000));
+
+		const result = await service.generateSpeech(recording);
+
+		expect(result.duration).toBe(2);
+		expect(Number.isInteger(result.duration)).toBe(true);
+	});
+
 	it('reports duration 0 for an empty wav', async () => {
 		const { service } = build(TTS_VENDOR.AWS_POLLY, pcmToWav(Buffer.alloc(0), 8000));
 

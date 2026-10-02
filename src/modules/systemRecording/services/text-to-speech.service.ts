@@ -9,9 +9,8 @@ import { GlobalConfigService } from 'src/modules/global/services/global-config.s
 import { SYSTEM_RECORDING_FORMAT_METADATA } from '../constants/system-recording.constant';
 import { SystemRecording } from '../entity/system-recording.entity';
 import { ProcessedAudioResult } from '../types/system-recording.types';
+import { WAV_HEADER_SIZE } from '../utils/pcm-to-wav.util';
 import { AwsPollyService, AWS_POLLY_SAMPLE_RATE } from './aws-polly.service';
-
-const WAV_HEADER_SIZE = 44;
 
 @Injectable()
 /** Generates speech audio from text and stores it in object storage. */
@@ -64,7 +63,7 @@ export class TextToSpeechService {
 		const metadata = SYSTEM_RECORDING_FORMAT_METADATA.wav;
 		const channels = 1;
 		const pcmBytes = Math.max(audio.length - WAV_HEADER_SIZE, 0);
-		const duration = pcmBytes / (AWS_POLLY_SAMPLE_RATE * channels * 2);
+		const duration = Math.ceil(pcmBytes / (AWS_POLLY_SAMPLE_RATE * channels * 2));
 
 		await this.storageService.putObject({
 			path: storageKey,
