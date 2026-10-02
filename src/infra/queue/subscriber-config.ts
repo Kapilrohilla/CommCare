@@ -40,7 +40,7 @@ export interface SubscriberConfig {
   concurrency?: number;
   /** BullMQ rate limiter — { max: jobs, duration: ms } e.g. { max: 60, duration: 60_000 } for 60 jobs/min */
   limiter?: { max: number; duration: number };
-  /** Max BullMQ job attempts before moving to DLQ (default: 10) */
+  /** Max BullMQ job attempts before the job is left in the queue's failed set (default: 10) */
   maxAttempts?: number;
 }
 
