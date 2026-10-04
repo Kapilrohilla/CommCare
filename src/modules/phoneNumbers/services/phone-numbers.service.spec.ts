@@ -3,6 +3,9 @@ import { PhoneNumberStatus, PhoneNumberType } from '../constants/phone-number.co
 import { PhoneNumber } from '../entity/phone-number.entity';
 import { PhoneNumbersService } from './phone-numbers.service';
 
+// got is ESM-only; transitively imported via the webhook dispatcher
+jest.mock('got', () => ({ __esModule: true, default: jest.fn() }));
+
 describe('PhoneNumbersService', () => {
 	const tenantAuth = { tenantId: 'tenant-1', userId: 'user-1' } as never;
 

@@ -5,6 +5,9 @@ import { IVREntity } from '../entity/ivr.entity';
 import { IVROptionEntity } from '../entity/ivr-options.entity';
 import { IVRService } from './ivr.service';
 
+// got is ESM-only; transitively imported via the webhook dispatcher
+jest.mock('got', () => ({ __esModule: true, default: jest.fn() }));
+
 describe('IVRService', () => {
 	const tenantAuth = { tenantId: 'tenant-1' } as never;
 

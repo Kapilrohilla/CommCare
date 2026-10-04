@@ -12,10 +12,10 @@ import { WebhookLogsService } from './webhook-logs.service';
 import { WebhookLogs } from '../entity/webhook-logs.entity';
 import { WebhookRegistry } from '../entity/webhook.entity';
 import {
-	Click2CallWebhookData,
 	WebhookDeliveryBody,
 	WebhookDeliveryPayload,
 	WebhookDeliveryResult,
+	WebhookEventData,
 	WebhookFanoutPayload,
 } from '../types/webhook-dispatch.types';
 
@@ -34,7 +34,7 @@ export class WebhookDispatcherService {
 	buildDeliveryBody(
 		eventTrigger: WebhookRegistryEventTrigger,
 		tenantId: string,
-		data: Click2CallWebhookData,
+		data: WebhookEventData,
 	): WebhookDeliveryBody {
 		return {
 			event: eventTrigger,
@@ -48,7 +48,7 @@ export class WebhookDispatcherService {
 	async enqueueWebhookFanout(
 		eventTrigger: WebhookRegistryEventTrigger,
 		tenantId: string,
-		data: Click2CallWebhookData,
+		data: WebhookEventData,
 	): Promise<void> {
 		const payload: WebhookFanoutPayload = { eventTrigger, tenantId, data };
 		await this.eventProducer.publish(Events.webhookFanout, payload, {
@@ -111,13 +111,22 @@ export class WebhookDispatcherService {
 		retryCount: number,
 	): Promise<void> {
 		const delivery = payload as WebhookDeliveryPayload;
-		const webhookRegistry = delivery?.webhookRegistry;
+		const snapshotId = delivery?.webhookRegistry?.id;
 		const body = delivery?.body;
 
-		if (!webhookRegistry?.id || !webhookRegistry?.endpoint || !body) {
+		if (!snapshotId || !body) {
 			this.logger.warn(
 				`Skipping ${eventName} (retry ${retryCount}): invalid delivery payload`,
 			);
+			return;
+		}
+
+		// The queued snapshot may be stale; always honour the webhook's current state.
+		const webhookRegistry =
+			await this.webhookRegistryService.getWebhookRegistryById(snapshotId);
+
+		if (!webhookRegistry) {
+			this.logger.warn(`Skipping delivery: webhook ${snapshotId} no longer exists`);
 			return;
 		}
 
@@ -126,12 +135,12 @@ export class WebhookDispatcherService {
 			return;
 		}
 
-		if (
-			webhookRegistry.pauseWebhookAt &&
-			webhookRegistry.pauseWebhookAt.getTime() > Date.now()
-		) {
-			this.logger.debug(`Skipping paused webhook ${webhookRegistry.id}`);
-			return;
+		if (webhookRegistry.pauseWebhookAt) {
+			const pausedUntil = new Date(webhookRegistry.pauseWebhookAt).getTime();
+			if (pausedUntil > Date.now()) {
+				this.logger.debug(`Skipping paused webhook ${webhookRegistry.id}`);
+				return;
+			}
 		}
 
 		let result: WebhookDeliveryResult;

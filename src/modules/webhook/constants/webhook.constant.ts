@@ -8,6 +8,13 @@ export enum WebhookRegistryEventTrigger {
 	Click2CallCallerDisconnected = 'Click2Call.CallerDisconnected',
 	Click2CallCallerNoAnswer = 'Click2Call.CallerNoAnswer',
 	Click2CallCalleeNoAnswer = 'Click2Call.CalleeNoAnswer',
+
+	/**
+	 * System recording events
+	 */
+	SystemRecordingUploaded = 'SystemRecording.Uploaded',
+	SystemRecordingProcessed = 'SystemRecording.Processed',
+	SystemRecordingFailed = 'SystemRecording.Failed',
 }
 
 export enum WebhookRegistryMethod{

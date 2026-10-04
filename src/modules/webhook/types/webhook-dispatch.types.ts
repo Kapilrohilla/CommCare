@@ -16,10 +16,23 @@ export interface Click2CallWebhookData {
 	occurredAt: string;
 }
 
+export interface SystemRecordingWebhookData {
+	recordingId: string;
+	name: string;
+	sourceType: string | null;
+	status: string;
+	format: string | null;
+	duration: number | null;
+	errorMessage: string | null;
+	occurredAt: string;
+}
+
+export type WebhookEventData = Click2CallWebhookData | SystemRecordingWebhookData;
+
 export interface WebhookFanoutPayload {
 	eventTrigger: WebhookRegistryEventTrigger;
 	tenantId: string;
-	data: Click2CallWebhookData;
+	data: WebhookEventData;
 }
 
 export interface WebhookDeliveryPayload {
@@ -32,7 +45,7 @@ export interface WebhookDeliveryBody {
 	event: WebhookRegistryEventTrigger;
 	tenantId: string;
 	timestamp: string;
-	data: Click2CallWebhookData;
+	data: WebhookEventData;
 }
 
 export interface WebhookDeliveryResult {

@@ -7,6 +7,9 @@ import {
 import { InboundRoute } from '../entity/inbound-route.entity';
 import { InboundRoutesService } from './inbound-routes.service';
 
+// got is ESM-only; transitively imported via the webhook dispatcher
+jest.mock('got', () => ({ __esModule: true, default: jest.fn() }));
+
 describe('InboundRoutesService', () => {
 	const tenantAuth = { tenantId: 'tenant-1' } as never;
 

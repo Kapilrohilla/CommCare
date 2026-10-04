@@ -15,6 +15,9 @@ const TRIGGER_OPTIONS = [
   { value: 'Click2Call.CallerDisconnected', label: 'Click2Call.CallerDisconnected — Originating party hangs up' },
   { value: 'Click2Call.CallerNoAnswer', label: 'Click2Call.CallerNoAnswer — Originating party does not answer' },
   { value: 'Click2Call.CalleeNoAnswer', label: 'Click2Call.CalleeNoAnswer — Target party does not answer' },
+  { value: 'SystemRecording.Uploaded', label: 'SystemRecording.Uploaded — Recording file uploaded and accepted' },
+  { value: 'SystemRecording.Processed', label: 'SystemRecording.Processed — Recording is ready to play' },
+  { value: 'SystemRecording.Failed', label: 'SystemRecording.Failed — Recording processing failed' },
 ] as const
 
 const name = ref('')
