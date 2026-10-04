@@ -32,6 +32,12 @@ describe('WebhookRegistryService lifecycle', () => {
 			expect(result.status).toBe(WebhookRegistryStatus.INACTIVE);
 		});
 
+		it('rejects a blocked webhook with Conflict and does not update it', async () => {
+			const { service, repo } = build({ id: 'w1', status: WebhookRegistryStatus.BLOCKED });
+			await expect(service.disableWebhookRegistry('w1', auth)).rejects.toBeInstanceOf(ConflictException);
+			expect(repo.updateWebhookRegistryStatus).not.toHaveBeenCalled();
+		});
+
 		it('throws NotFound for unknown or other-tenant id', async () => {
 			const { service, repo } = build(null);
 			await expect(service.disableWebhookRegistry('w1', auth)).rejects.toThrow(new NotFoundException('Webhook registry not found'));

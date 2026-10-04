@@ -59,6 +59,9 @@ export class WebhookRegistryService {
 
 	async disableWebhookRegistry(id: string, auth: AuthContext): Promise<WebhookRegistry> {
 		const webhookRegistry = await this.getOwnedWebhookRegistryOrThrow(id, auth.tenantId!);
+		if (webhookRegistry.status === WebhookRegistryStatus.BLOCKED) {
+			throw new ConflictException('Webhook is blocked');
+		}
 		if (webhookRegistry.status === WebhookRegistryStatus.INACTIVE) {
 			return webhookRegistry;
 		}
