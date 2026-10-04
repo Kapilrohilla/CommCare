@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put } from "@nestjs/common";
 import type { CreateWebhookRegistryDto, UpdateWebhookRegistryDto } from "../dto/webhook-registry.dto";
 import { WebhookRegistryService } from "../services/webhook-registry.service";
 import { CurrentAuth } from "src/shared/decorators/current-auth.decorator";
@@ -37,5 +37,27 @@ export class WebhookRegistryController {
 	@RequireTenant()
 	async updateWebhookRegistry(@Param('id') id: string, @Body() updateWebhookRegistryDto: UpdateWebhookRegistryDto, @CurrentAuth() auth: AuthContext): Promise<WebhookRegistry> {
 		return this.webhookRegistryService.updateWebhookRegistry(id, updateWebhookRegistryDto, auth);
+	}
+
+	@Patch('/:id/disable')
+	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
+	@RequireTenant()
+	async disableWebhookRegistry(@Param('id') id: string, @CurrentAuth() auth: AuthContext): Promise<WebhookRegistry> {
+		return this.webhookRegistryService.disableWebhookRegistry(id, auth);
+	}
+
+	@Patch('/:id/enable')
+	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
+	@RequireTenant()
+	async enableWebhookRegistry(@Param('id') id: string, @CurrentAuth() auth: AuthContext): Promise<WebhookRegistry> {
+		return this.webhookRegistryService.enableWebhookRegistry(id, auth);
+	}
+
+	@Delete('/:id')
+	@HttpCode(204)
+	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
+	@RequireTenant()
+	async deleteWebhookRegistry(@Param('id') id: string, @CurrentAuth() auth: AuthContext): Promise<void> {
+		return this.webhookRegistryService.deleteWebhookRegistry(id, auth.tenantId!);
 	}
 }

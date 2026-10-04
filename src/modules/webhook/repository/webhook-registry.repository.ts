@@ -26,6 +26,14 @@ export class WebhookRegistryRepository {
 		return this.readerWebhookRegistryRepository.findOne({ where: { id } });
 	}
 
+	async getWebhookRegistryByIdAndTenantId(id: string, tenantId: string): Promise<WebhookRegistry | null> {
+		return this.readerWebhookRegistryRepository.findOne({ where: { id, tenantId } });
+	}
+
+	async updateWebhookRegistryStatus(id: string, status: WebhookRegistryStatus, updatedBy: string): Promise<void> {
+		await this.writerWebhookRegistryRepository.update(id, { status, updatedBy });
+	}
+
 	async updateWebhookRegistry(webhookRegistry: WebhookRegistry): Promise<void> {
 		await  this.writerWebhookRegistryRepository.update(webhookRegistry.id, webhookRegistry);
 		return;

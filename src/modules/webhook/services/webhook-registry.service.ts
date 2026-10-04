@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { WebhookRegistry } from "../entity/webhook.entity";
 import { WebhookRegistryRepository } from "../repository/webhook-registry.repository";
 import type { CreateWebhookRegistryDto , UpdateWebhookRegistryDto} from "../dto/webhook-registry.dto";
@@ -49,8 +49,42 @@ export class WebhookRegistryService {
 		return webhookRegistry
 	}
 
-	async deleteWebhookRegistry(id: string): Promise<void> {
-		return this.webhookRegistryRepository.deleteWebhookRegistry(id);
+	private async getOwnedWebhookRegistryOrThrow(id: string, tenantId: string): Promise<WebhookRegistry> {
+		const webhookRegistry = await this.webhookRegistryRepository.getWebhookRegistryByIdAndTenantId(id, tenantId);
+		if (!webhookRegistry) {
+			throw new NotFoundException('Webhook registry not found');
+		}
+		return webhookRegistry;
+	}
+
+	async disableWebhookRegistry(id: string, auth: AuthContext): Promise<WebhookRegistry> {
+		const webhookRegistry = await this.getOwnedWebhookRegistryOrThrow(id, auth.tenantId!);
+		if (webhookRegistry.status === WebhookRegistryStatus.INACTIVE) {
+			return webhookRegistry;
+		}
+		await this.webhookRegistryRepository.updateWebhookRegistryStatus(id, WebhookRegistryStatus.INACTIVE, auth.userId!);
+		webhookRegistry.status = WebhookRegistryStatus.INACTIVE;
+		webhookRegistry.updatedBy = auth.userId!;
+		return webhookRegistry;
+	}
+
+	async enableWebhookRegistry(id: string, auth: AuthContext): Promise<WebhookRegistry> {
+		const webhookRegistry = await this.getOwnedWebhookRegistryOrThrow(id, auth.tenantId!);
+		if (webhookRegistry.status === WebhookRegistryStatus.BLOCKED) {
+			throw new ConflictException('Webhook is blocked and cannot be enabled');
+		}
+		if (webhookRegistry.status === WebhookRegistryStatus.ACTIVE) {
+			return webhookRegistry;
+		}
+		await this.webhookRegistryRepository.updateWebhookRegistryStatus(id, WebhookRegistryStatus.ACTIVE, auth.userId!);
+		webhookRegistry.status = WebhookRegistryStatus.ACTIVE;
+		webhookRegistry.updatedBy = auth.userId!;
+		return webhookRegistry;
+	}
+
+	async deleteWebhookRegistry(id: string, tenantId: string): Promise<void> {
+		await this.getOwnedWebhookRegistryOrThrow(id, tenantId);
+		await this.webhookRegistryRepository.deleteWebhookRegistry(id);
 	}
 
 	async getWebhookRegistryByTenantId(tenantId: string): Promise<WebhookRegistry[]> {
