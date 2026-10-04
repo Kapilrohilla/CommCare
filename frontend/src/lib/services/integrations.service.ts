@@ -50,6 +50,9 @@ export const webhooksService = {
     payload: { name: string; description?: string; endpoint: string; method: string; triggerEvent: string },
     token: string,
   ) => request<Webhook>('/webhook-registry', { method: 'POST', body: JSON.stringify(payload), token }),
+  enable: (id: string, token: string) => request<Webhook>(`/webhook-registry/${id}/enable`, { method: 'PATCH', token }),
+  disable: (id: string, token: string) => request<Webhook>(`/webhook-registry/${id}/disable`, { method: 'PATCH', token }),
+  remove: (id: string, token: string) => request(`/webhook-registry/${id}`, { method: 'DELETE', token }),
 }
 
 export type WebhookLogQuery = {

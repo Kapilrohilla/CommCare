@@ -2416,6 +2416,9 @@ th:last-child, td:last-child { text-align: right; }
   width: 64px;
   text-align: right;
 }
+.webhook-actions-cell { width: auto; white-space: nowrap; }
+.webhook-actions-cell .icon-button { display: inline-grid; vertical-align: middle; margin-left: 6px; }
+.webhook-actions-error { margin: 0; padding: 10px 16px; color: #b42318; font-size: 12px; }
 
 @media (max-width: 640px) {
   .recording-modal__tabs { grid-template-columns: 1fr; }

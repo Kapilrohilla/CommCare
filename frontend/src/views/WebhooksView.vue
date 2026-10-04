@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Plus, RefreshCw } from 'lucide-vue-next'
+import { Pause, Play, Plus, RefreshCw, Trash2 } from 'lucide-vue-next'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import CreateWebhookDialog from '../components/CreateWebhookDialog.vue'
 import ResourceState from '../components/ResourceState.vue'
 import StatusBadge from '../components/StatusBadge.vue'
@@ -64,6 +65,40 @@ async function createWebhook(payload: {
   }
 }
 
+const actionError = ref('')
+const pendingId = ref<string | null>(null)
+const deleteTarget = ref<Webhook | null>(null)
+
+async function runAction(hook: Webhook, action: () => Promise<unknown>, fallback: string) {
+  if (pendingId.value) return
+  pendingId.value = hook.id
+  actionError.value = ''
+  try {
+    await action()
+    await loadWebhooks()
+  } catch (error) {
+    actionError.value = error instanceof Error ? error.message : fallback
+  } finally {
+    pendingId.value = null
+  }
+}
+
+function toggleWebhook(hook: Webhook) {
+  const isActive = webhookStatus(hook) === 'active'
+  return runAction(
+    hook,
+    () => (isActive ? webhooksService.disable(hook.id, token.value) : webhooksService.enable(hook.id, token.value)),
+    isActive ? 'Webhook could not be disabled.' : 'Webhook could not be enabled.',
+  )
+}
+
+async function confirmDelete() {
+  const hook = deleteTarget.value
+  if (!hook) return
+  deleteTarget.value = null
+  await runAction(hook, () => webhooksService.remove(hook.id, token.value), 'Webhook could not be deleted.')
+}
+
 onMounted(loadWebhooks)
 </script>
 
@@ -94,6 +129,7 @@ onMounted(loadWebhooks)
     />
 
     <section v-else class="surface table-surface">
+      <p v-if="actionError" class="webhook-actions-error" role="alert">{{ actionError }}</p>
       <div class="table-scroll">
         <table v-if="state !== 'empty'">
           <thead>
@@ -103,6 +139,7 @@ onMounted(loadWebhooks)
               <th>Endpoint</th>
               <th>Method</th>
               <th>Status</th>
+              <th class="table-actions-col">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -115,6 +152,30 @@ onMounted(loadWebhooks)
               <td>{{ hook.endpoint || hook.url || '—' }}</td>
               <td>{{ (hook.method || 'post').toUpperCase() }}</td>
               <td><StatusBadge :status="webhookStatus(hook)" /></td>
+              <td class="table-actions-col webhook-actions-cell">
+                <button
+                  class="button button--secondary"
+                  type="button"
+                  data-testid="toggle-webhook"
+                  :disabled="pendingId !== null || webhookStatus(hook) === 'blocked'"
+                  :title="webhookStatus(hook) === 'blocked' ? 'Blocked webhooks cannot be changed' : undefined"
+                  @click="toggleWebhook(hook)"
+                >
+                  <Pause v-if="webhookStatus(hook) === 'active'" :size="14" />
+                  <Play v-else :size="14" />
+                  {{ webhookStatus(hook) === 'active' ? 'Disable' : 'Enable' }}
+                </button>
+                <button
+                  class="icon-button"
+                  type="button"
+                  aria-label="Delete"
+                  title="Delete"
+                  :disabled="pendingId !== null"
+                  @click="deleteTarget = hook"
+                >
+                  <Trash2 :size="15" />
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -126,6 +187,15 @@ onMounted(loadWebhooks)
         />
       </div>
     </section>
+
+    <ConfirmDialog
+      :open="deleteTarget !== null"
+      title="Delete webhook"
+      :message="`Delete ${deleteTarget?.name ?? 'this webhook'}? This cannot be undone.`"
+      confirm-label="Delete"
+      @cancel="deleteTarget = null"
+      @confirm="confirmDelete"
+    />
 
     <CreateWebhookDialog
       :open="createOpen"
