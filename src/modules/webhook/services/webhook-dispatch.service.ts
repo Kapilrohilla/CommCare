@@ -12,10 +12,10 @@ import { WebhookLogsService } from './webhook-logs.service';
 import { WebhookLogs } from '../entity/webhook-logs.entity';
 import { WebhookRegistry } from '../entity/webhook.entity';
 import {
-	Click2CallWebhookData,
 	WebhookDeliveryBody,
 	WebhookDeliveryPayload,
 	WebhookDeliveryResult,
+	WebhookEventData,
 	WebhookFanoutPayload,
 } from '../types/webhook-dispatch.types';
 
@@ -34,7 +34,7 @@ export class WebhookDispatcherService {
 	buildDeliveryBody(
 		eventTrigger: WebhookRegistryEventTrigger,
 		tenantId: string,
-		data: Click2CallWebhookData,
+		data: WebhookEventData,
 	): WebhookDeliveryBody {
 		return {
 			event: eventTrigger,
@@ -48,7 +48,7 @@ export class WebhookDispatcherService {
 	async enqueueWebhookFanout(
 		eventTrigger: WebhookRegistryEventTrigger,
 		tenantId: string,
-		data: Click2CallWebhookData,
+		data: WebhookEventData,
 	): Promise<void> {
 		const payload: WebhookFanoutPayload = { eventTrigger, tenantId, data };
 		await this.eventProducer.publish(Events.webhookFanout, payload, {
