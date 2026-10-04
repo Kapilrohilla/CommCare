@@ -7,6 +7,7 @@ import CreateSystemRecordingDialog, {
 import ResourceState from '../components/ResourceState.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import SystemRecordingActionsDialog from '../components/SystemRecordingActionsDialog.vue'
+import SystemRecordingDetailsDialog from '../components/SystemRecordingDetailsDialog.vue'
 import { ApiError } from '../lib/api'
 import { recordingsService, type SystemRecording } from '../lib/services/integrations.service'
 import { useSessionStore } from '../stores/session'
@@ -24,6 +25,8 @@ const createError = ref('')
 const actionError = ref('')
 const createOpen = ref(false)
 const actionsOpen = ref(false)
+const detailsId = ref<string | null>(null)
+const detailsRecording = computed(() => recordings.value.find((item) => item.id === detailsId.value) ?? null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 const token = computed(() => session.current?.token ?? '')
 
@@ -70,6 +73,14 @@ function openActions(recording: SystemRecording) {
   actionTarget.value = recording
   actionError.value = ''
   actionsOpen.value = true
+}
+
+function openDetails(recording: SystemRecording) {
+  detailsId.value = recording.id
+}
+
+function closeDetails() {
+  detailsId.value = null
 }
 
 function closeActions() {
@@ -176,7 +187,16 @@ onUnmounted(stopPolling)
             </tr>
           </thead>
           <tbody>
-            <tr v-for="recording in recordings" :key="recording.id">
+            <tr
+              v-for="recording in recordings"
+              :key="recording.id"
+              class="table-row--clickable"
+              tabindex="0"
+              :aria-label="`View details for ${recording.name || recording.id}`"
+              @click="openDetails(recording)"
+              @keydown.enter.self.prevent="openDetails(recording)"
+              @keydown.space.self.prevent="openDetails(recording)"
+            >
               <td><strong>{{ recording.name || recording.id }}</strong></td>
               <td>{{ recording.sourceType || '—' }}</td>
               <td><StatusBadge :status="recording.status" /></td>
@@ -186,7 +206,7 @@ onUnmounted(stopPolling)
                   class="icon-button"
                   type="button"
                   aria-label="Take action on system recording"
-                  @click="openActions(recording)"
+                  @click.stop="openActions(recording)"
                 >
                   <MoreHorizontal :size="17" />
                 </button>
@@ -209,6 +229,12 @@ onUnmounted(stopPolling)
       :error="createError"
       @cancel="createOpen = false"
       @submit="createRecording"
+    />
+
+    <SystemRecordingDetailsDialog
+      :open="detailsId !== null"
+      :recording="detailsRecording"
+      @cancel="closeDetails"
     />
 
     <SystemRecordingActionsDialog
