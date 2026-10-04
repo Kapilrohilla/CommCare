@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Put } from "@nestjs/common";
-import type { CreateWebhookRegistryDto, UpdateWebhookRegistryDto } from "../dto/webhook-registry.dto";
+import { CreateWebhookRegistryDto, UpdateWebhookRegistryDto } from "../dto/webhook-registry.dto";
+import { ZodValidationPipe } from "src/shared/pipes/zodValidationPipe";
 import { WebhookRegistryService } from "../services/webhook-registry.service";
 import { CurrentAuth } from "src/shared/decorators/current-auth.decorator";
 import type { AuthContext } from "src/shared/types/auth.types";
@@ -15,7 +16,7 @@ export class WebhookRegistryController {
 	@Post()
 	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
 	@RequireTenant()
-	async createWebhookRegistry(@Body() createWebhookRegistryDto: CreateWebhookRegistryDto, @CurrentAuth() auth: AuthContext): Promise<WebhookRegistry> {
+	async createWebhookRegistry(@Body(new ZodValidationPipe(CreateWebhookRegistryDto)) createWebhookRegistryDto: CreateWebhookRegistryDto, @CurrentAuth() auth: AuthContext): Promise<WebhookRegistry> {
 		return this.webhookRegistryService.createWebhookRegistry(createWebhookRegistryDto, auth);
 	}
 
@@ -35,7 +36,7 @@ export class WebhookRegistryController {
 	@Put('/:id')
 	@JwtAuthGuard(TOKEN_TYPE.ACCESS)
 	@RequireTenant()
-	async updateWebhookRegistry(@Param('id') id: string, @Body() updateWebhookRegistryDto: UpdateWebhookRegistryDto, @CurrentAuth() auth: AuthContext): Promise<WebhookRegistry> {
+	async updateWebhookRegistry(@Param('id') id: string, @Body(new ZodValidationPipe(UpdateWebhookRegistryDto)) updateWebhookRegistryDto: UpdateWebhookRegistryDto, @CurrentAuth() auth: AuthContext): Promise<WebhookRegistry> {
 		return this.webhookRegistryService.updateWebhookRegistry(id, updateWebhookRegistryDto, auth);
 	}
 
