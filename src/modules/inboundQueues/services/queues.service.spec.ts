@@ -4,6 +4,9 @@ import { Queue } from '../entity/queue.entity';
 
 import { QueuesService } from './queues.service';
 
+// got is ESM-only; transitively imported via the webhook dispatcher
+jest.mock('got', () => ({ __esModule: true, default: jest.fn() }));
+
 describe('QueuesService', () => {
 	const tenantAuth = { tenantId: 'tenant-1', userId: 'user-1' } as never;
 	const noTenantAuth = { userId: 'user-1' } as never;

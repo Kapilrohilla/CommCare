@@ -28,6 +28,9 @@ import {
 	SystemRecordingUploadProcessPayload,
 } from '../types/system-recording.types';
 import { ProcessedAudioResult } from '../types/system-recording.types';
+import { WebhookDispatcherService } from 'src/modules/webhook/services/webhook-dispatch.service';
+import { WebhookRegistryEventTrigger } from 'src/modules/webhook/constants/webhook.constant';
+import { buildSystemRecordingWebhookData } from 'src/modules/webhook/utils/system-recording-webhook-data.util';
 
 @Injectable()
 export class SystemRecordingService {
@@ -39,6 +42,7 @@ export class SystemRecordingService {
 		private readonly recordingProcessorService: RecordingProcessorService,
 		private readonly textToSpeechService: TextToSpeechService,
 		private readonly eventProducer: EventProducer,
+		private readonly webhookDispatcherService: WebhookDispatcherService,
 	) {}
 
 	async createSystemRecording(
@@ -177,6 +181,10 @@ export class SystemRecordingService {
 		await this.systemRecordingRepository.save(recording);
 
 		await this.enqueueUploadProcessing(recording, sourceStorageKey);
+		await this.emitRecordingWebhook(
+			WebhookRegistryEventTrigger.SystemRecordingUploaded,
+			recording,
+		);
 
 		return recording;
 	}
@@ -330,6 +338,11 @@ export class SystemRecordingService {
 		await this.systemRecordingRepository.save(recording);
 
 		this.logger.log(`System recording ${recording.id} is active at ${result.storageKey}`);
+
+		await this.emitRecordingWebhook(
+			WebhookRegistryEventTrigger.SystemRecordingProcessed,
+			recording,
+		);
 	}
 
 	private async markFailed(
@@ -340,6 +353,34 @@ export class SystemRecordingService {
 		recording.errorMessage = message;
 		await this.systemRecordingRepository.save(recording);
 		this.logger.error(`System recording ${recording.id} failed: ${message}`);
+
+		await this.emitRecordingWebhook(
+			WebhookRegistryEventTrigger.SystemRecordingFailed,
+			recording,
+		);
+	}
+
+	/**
+	 * Best-effort: a webhook outage must never change recording status or throw.
+	 */
+	private async emitRecordingWebhook(
+		trigger: WebhookRegistryEventTrigger,
+		recording: SystemRecording,
+	): Promise<void> {
+		try {
+			const data = buildSystemRecordingWebhookData(recording);
+			await this.webhookDispatcherService.enqueueWebhookFanout(
+				trigger,
+				recording.tenantId,
+				data,
+			);
+		} catch (error) {
+			this.logger.error(
+				`Failed to enqueue ${trigger} webhook for recording ${recording.id}: ${
+					error instanceof Error ? error.message : String(error)
+				}`,
+			);
+		}
 	}
 
 	private async enqueueUploadProcessing(

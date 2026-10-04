@@ -9,6 +9,7 @@ import { SystemRecordingController } from './controller/system-recording.control
 import { RecordingProcessorService } from './services/recording-processor.service';
 import { TextToSpeechService } from './services/text-to-speech.service';
 import { AwsPollyService } from './services/aws-polly.service';
+import { WebhookModule } from 'src/modules/webhook/webhook.module';
 import { SystemRecording } from './entity/system-recording.entity';
 
 @Module({
@@ -17,6 +18,7 @@ import { SystemRecording } from './entity/system-recording.entity';
 		StorageModule,
 		QueueModule,
 		GlobalModule,
+		WebhookModule,
 	],
 	controllers: [SystemRecordingController],
 	providers: [

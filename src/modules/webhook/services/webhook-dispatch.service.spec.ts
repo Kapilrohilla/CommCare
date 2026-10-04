@@ -153,3 +153,50 @@ describe('WebhookDispatcherService.handleEventWebhookDelivery', () => {
 		expect(gotMock).not.toHaveBeenCalled();
 	});
 });
+
+describe('WebhookDispatcherService.handleEventWebhookFanout', () => {
+	let service: WebhookDispatcherService;
+	let registryService: { getActiveWebhookRegistriesByEventTrigger: jest.Mock };
+	let producer: { publish: jest.Mock };
+
+	const trigger = 'systemRecording.processed' as unknown as WebhookRegistryEventTrigger;
+	const fanout = {
+		eventTrigger: trigger,
+		tenantId: 'tenant-1',
+		data: { recordingId: 'rec-1' },
+	};
+
+	beforeEach(() => {
+		registryService = {
+			getActiveWebhookRegistriesByEventTrigger: jest.fn(),
+		};
+		producer = { publish: jest.fn().mockResolvedValue(undefined) };
+		service = new WebhookDispatcherService(
+			registryService as any,
+			producer as any,
+			{ createWebhookLog: jest.fn() } as any,
+		);
+	});
+
+	it('enqueues one delivery per registry returned for the trigger and tenant', async () => {
+		registryService.getActiveWebhookRegistriesByEventTrigger.mockResolvedValue([
+			buildRegistry({ id: 'wh-1' }),
+			buildRegistry({ id: 'wh-2' }),
+		]);
+		await service.handleEventWebhookFanout('webhook.fanout', fanout, 0);
+		expect(
+			registryService.getActiveWebhookRegistriesByEventTrigger,
+		).toHaveBeenCalledWith(trigger, 'tenant-1');
+		expect(producer.publish).toHaveBeenCalledTimes(2);
+		const ids = producer.publish.mock.calls.map((c) => c[1].webhookRegistry.id);
+		expect(ids).toEqual(['wh-1', 'wh-2']);
+		expect(producer.publish.mock.calls[0][1].body.tenantId).toBe('tenant-1');
+		expect(producer.publish.mock.calls[0][1].body.data).toEqual({ recordingId: 'rec-1' });
+	});
+
+	it('enqueues nothing when no registries match', async () => {
+		registryService.getActiveWebhookRegistriesByEventTrigger.mockResolvedValue([]);
+		await service.handleEventWebhookFanout('webhook.fanout', fanout, 0);
+		expect(producer.publish).not.toHaveBeenCalled();
+	});
+});

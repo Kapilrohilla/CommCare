@@ -3,6 +3,9 @@ import { Queue } from '../entity/queue.entity';
 import { QueueMember } from '../entity/queue-member.entity';
 import { QueueMembersService } from './queue-members.service';
 
+// got is ESM-only; transitively imported via the webhook dispatcher
+jest.mock('got', () => ({ __esModule: true, default: jest.fn() }));
+
 describe('QueueMembersService', () => {
 	const auth = { tenantId: 'tenant-1', userId: 'user-1' } as never;
 	const queue = Object.assign(new Queue(), { id: 'queue-1', tenantId: 'tenant-1' });
